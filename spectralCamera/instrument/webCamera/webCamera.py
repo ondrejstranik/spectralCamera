@@ -15,7 +15,7 @@ from viscope.instrument.base.baseCamera import BaseCamera
 
 class WebCamera(BaseCamera):
     ''' class to control usb/integrated camera. wrapper for cv2 '''
-    DEFAULTS = {'name': 'webCamera',
+    DEFAULT = {'name': 'webCamera',
                 'exposureTime': 1/32,
                 'nFrames': 1,
                 'cameraIdx': 0}
@@ -26,7 +26,7 @@ class WebCamera(BaseCamera):
         super(WebCamera,self).__init__(name=name,*args, **kwargs)
         
         # camera parameters
-        self.cameraIdx = kwargs['cameraIdx'] if 'cameraIdx' in kwargs else WebCamera.DEFAULTS['cameraIdx']
+        self.cameraIdx = kwargs['cameraIdx'] if 'cameraIdx' in kwargs else WebCamera.DEFAULT['cameraIdx']
         self.exposureTime = BaseCamera.DEFAULT['exposureTime']
         self.nFrame = BaseCamera.DEFAULT['nFrame']
 
@@ -41,7 +41,7 @@ class WebCamera(BaseCamera):
         self.cap = cv2.VideoCapture(self.cameraIdx)
         # switch off auto-exposure
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1) 
-        self.set_exposureTime()
+        self._setExposureTime(self.exposureTime)
 
         # get the image size
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -57,7 +57,7 @@ class WebCamera(BaseCamera):
 
     def getLastImage(self):
         myframe = None
-        for _ in range(self.n_frames):
+        for _ in range(self.nFrame):
             temporary_frame = None
             while temporary_frame is None:
                 ret, temporary_frame = self.cap.read()
@@ -102,15 +102,16 @@ class WebCamera(BaseCamera):
 #%%
 
 if __name__ == '__main__':
-    cam = webCamera()
-    cam.prepareCamera()
-    cam.setParameter('exposureTime',300)
-    cam.setParameter('n_frames', 5)
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+    from viscope.main import Viscope
 
-    cam.startAcquisition()
-    cam.displayStreamOfImages()
-    cam.stopAcquisition()
-    cam.closeCamera()
+    camera = WebCamera(name='WebCamera')
+    camera.connect()
+    camera.setParameter('threadingNow',True)
 
+    viscope = Viscope()
+    newGUI  = AllDeviceGUI(viscope)
+    newGUI.setDevice([camera])
+    viscope.run()
 
-# %%
+    camera.disconnect()
