@@ -17,7 +17,8 @@ setuptools.setup(
         'numpy',
         'PyQt5',
         'napari',
-        'cv2'],
+        'opencv-python',
+        'pyqtgraph'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
