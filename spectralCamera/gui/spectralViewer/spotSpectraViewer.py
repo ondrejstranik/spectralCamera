@@ -2,7 +2,7 @@
 class for viewing spots's plasmon resonance
 '''
 from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
-from spectralCamera.algoritm.spotSpectra import SpotSpectra
+from spectralCamera.algorithm.spotSpectra import SpotSpectra
 
 import napari
 import time

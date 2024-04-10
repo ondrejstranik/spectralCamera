@@ -5,7 +5,7 @@ import pytest
 @pytest.mark.GUI
 def test_webCamera():
     ''' check if gui works'''
-    from spectralCamera.instrument.webCamera.webCamera import WebCamera
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
 
     cam = WebCamera()
     cam.connect()
@@ -20,7 +20,7 @@ def test_webCamera2():
     ''' check if camera works with viscope gui '''
     from viscope.gui.allDeviceGUI import AllDeviceGUI
     from viscope.main import Viscope
-    from spectralCamera.instrument.webCamera.webCamera import WebCamera
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera  
 
     camera = WebCamera(name='WebCamera')
     camera.connect()

@@ -35,7 +35,7 @@ class TransmissionViewer(XYWViewer):
         self.spectraParameterGui = None
 
         # set gui
-        SpectraViewer._setWidget(self)
+        TransmissionViewer._setWidget(self)
 
     def _setWidget(self):
         ''' prepare the qui '''
