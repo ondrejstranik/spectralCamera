@@ -32,3 +32,35 @@ def test_webCamera2():
     viscope.run()
 
     camera.disconnect()
+
+@pytest.mark.GUI
+def test_XYWViewerGUI():
+
+    from viscope.main import Viscope
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera    
+    from spectralCamera.instrument.sCamera.sCamera import SCamera
+    from spectralCamera.algorithm.calibrateRGBImages import CalibrateRGBImage
+    from spectralCamera.gui.xywViewerGUI import XYWViewerGui
+
+    camera = WebCamera(name='WebCamera')
+    camera.connect()
+    camera.setParameter('threadingNow',True)
+
+    sCal = CalibrateRGBImage(rgbOrder='RGB')
+
+    sCamera = SCamera(name='sCamera')
+    sCamera.connect()
+    sCamera.setParameter('camera',camera)
+    sCamera.setParameter('calibrationData',sCal)
+    sCamera.setParameter('threadingNow',True)
+
+    print('starting main event loop')
+    viscope = Viscope()
+    newGUI  = XYWViewerGui(viscope)
+    newGUI.setDevice(sCamera)
+    viscope.run()
+
+    camera.disconnect()
+    sCamera.disconnect()
+
+

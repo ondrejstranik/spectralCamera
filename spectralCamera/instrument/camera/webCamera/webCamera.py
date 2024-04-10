@@ -23,7 +23,7 @@ class WebCamera(BaseCamera):
     def __init__(self, name=DEFAULT['name'],*args, **kwargs):
         ''' initialisation '''
 
-        super(WebCamera,self).__init__(name=name,*args, **kwargs)
+        super().__init__(name=name,*args, **kwargs)
         
         # camera parameters
         self.cameraIdx = kwargs['cameraIdx'] if 'cameraIdx' in kwargs else WebCamera.DEFAULT['cameraIdx']
@@ -31,10 +31,7 @@ class WebCamera(BaseCamera):
         self.nFrame = BaseCamera.DEFAULT['nFrame']
 
         self.cap = None
-        self.frame = None
-       
-        self.height = None
-        self.width = None
+
 
     def connect(self):
         super().connect()
@@ -48,7 +45,7 @@ class WebCamera(BaseCamera):
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     def disconnect(self):
-        super().connect()
+        super().disconnect()
         self.cap.release()
 
 

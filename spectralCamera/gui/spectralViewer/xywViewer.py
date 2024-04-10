@@ -36,7 +36,11 @@ class XYWViewer():
         self.spectraHistogramBin = None
 
         # napari
-        self.viewer = napari.Viewer()
+        if 'show' in kwargs:
+            self.viewer = napari.Viewer(show=kwargs['show'])
+        else:
+            self.viewer = napari.Viewer()
+
         self.spectraLayer = None
         self.pointLayer = None
 
@@ -129,7 +133,7 @@ class XYWViewer():
                 self.pointSpectra.append(temp)
             except:
                 self.pointSpectra.append(0*self.wavelength)
-
+        
     def drawSpectraGraph(self):
         ''' draw all new lines in the spectraGraph '''
         # remove all lines
@@ -212,7 +216,8 @@ class XYWViewer():
         ''' set the image '''
         self.xywImage = image
         self.spectraLayer.data = self.xywImage
-        self.viewer.reset_view()
+        #self.viewer.reset_view()
+        self.calculateSpectra()
         self.updateSpectraGraph()
         self.updateHistogram()
 
