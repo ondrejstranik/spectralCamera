@@ -9,6 +9,8 @@ import numpy as np
 from skimage import data
 from skimage.transform import resize
 from viscope.virtualSystem.component.sample import Sample
+from skimage.draw import disk
+
 
 class Sample2(Sample):
     ''' class to define a sample object of the microscope'''
@@ -17,6 +19,7 @@ class Sample2(Sample):
     def __init__(self,*args, **kwargs):
         ''' initialisation '''
         super().__init__(*args, **kwargs)
+        self.wavelength = None
 
     def setSpectralAstronaut(self,samplePixelSize=None,
                         sampleSize= None,
@@ -28,11 +31,14 @@ class Sample2(Sample):
         DEFAULT = {'photonRateMax':1e6,
                     'samplePixelSize':1, # um
                     'sampleSize': (200,400),
-                    'samplePosition': np.array([0,0,0])} # pixels
+                    'samplePosition': np.array([0,0,0]), # pixels
+                    'wavelength': np.array([400,500,600])} # nm
 
         self.pixelSize=DEFAULT['samplePixelSize'] if samplePixelSize is None else samplePixelSize
         self.size=DEFAULT['sampleSize'] if sampleSize is None else sampleSize
         self.position=DEFAULT['samplePosition'] if samplePosition is None else samplePosition
+        self.wavelength = DEFAULT['wavelength'] if wavelength is None else wavelength
+
 
         photonRateMax=DEFAULT['photonRateMax'] if photonRateMax is None else photonRateMax        
 
@@ -47,6 +53,43 @@ class Sample2(Sample):
 
         self.data = _sample
 
+    def setSpectralDisk(self,samplePixelSize=None,
+                        sampleSize= None,
+                        photonRateMax= None,
+                        samplePosition = None,
+                        wavelength  = None):
+
+        DEFAULT = {'photonRateMax':1e6,
+                    'samplePixelSize':1, # um
+                    'sampleSize': (200,400),
+                    'samplePosition': np.array([0,0,0]),  # pixels
+                    'wavelength': np.arange(400,800,10)}
+
+        self.pixelSize=DEFAULT['samplePixelSize'] if samplePixelSize is None else samplePixelSize
+        self.size=DEFAULT['sampleSize'] if sampleSize is None else sampleSize
+        self.position=DEFAULT['samplePosition'] if samplePosition is None else samplePosition
+        self.wavelength = DEFAULT['wavelength'] if wavelength is None else wavelength
+
+        photonRateMax=DEFAULT['photonRateMax'] if photonRateMax is None else photonRateMax        
+
+        _sample = np.zeros((self.wavelength.shape[0],*self.size))
+
+        # fixed disk properties
+        # x,y,radius,amplitude,central wavelength, standard deviation
+        diskList = [[10,20,5,1,400,80],
+                [50,80,20,1,700,10],
+                [200,300,50,0.4,550, 80]]
+        
+        for _disk in diskList: 
+            rr, cc = disk((_disk[0],_disk[1]), _disk[2], shape=_sample.shape[1:])
+            _sample[:,rr,cc] = _disk[3]*np.exp(-(self.wavelength-_disk[4])**2/2/_disk[5]**2)[:,None]
+
+        # normalise
+        _sample = _sample/np.max(_sample)*photonRateMax
+
+        self.data = _sample
+
+
 
 #%%
 
@@ -55,7 +98,7 @@ if __name__ == '__main__':
     import napari
 
     sample = Sample2()
-    sample.setSpectralAstronaut()
+    sample.setSpectralDisk()
     # load multichannel image in one line
     viewer = napari.view_image(sample.get())
     napari.run()
