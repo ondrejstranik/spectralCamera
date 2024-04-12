@@ -11,7 +11,6 @@ import napari
 class CalibrateRGBImage():
     ''' main class to calibrate rgb images '''
 
-    #TODO: get proper value of the wavelength in the case of RGB filters
     DEFAULT = {'wavelength': [400,550,610],
                'rgbOrder' : 'RGB' }
 
@@ -39,7 +38,11 @@ class CalibrateRGBImage():
 
         if self.rgbOrder== 'RGB': # three images next to each other
             myShape = np.shape(rawImage)
-            WYXImage = np.reshape(rawImage,(myShape[0],3,-1))
+            if rawImage.shape[1]%3 == 0:
+                WYXImage = np.reshape(rawImage,(myShape[0],3,-1))
+            else:
+                WYXImage = np.reshape(rawImage[:,0:-(rawImage.shape[1]%3)],(myShape[0],3,-1))
+
             WYXImage = np.moveaxis(WYXImage, 1, 0)
 
         if self.rgbOrder== 'RGGB': # square color pixel RG|GB  
@@ -59,26 +62,8 @@ class CalibrateRGBImage():
         return self.wavelength
 
 if __name__ == "__main__":
+    pass
 
-
-    # get the image from webcam    
-    from HSIplasmon.camera.webCamera import webCamera
-    cam = webCamera()
-    cam.prepareCamera()
-    cam.setParameter('n_frames', 1)
-    cam.startAcquisition()
-    rawImage = cam.getLastImage()
-    cam.closeCamera()
-    
-    # initiate the calibration class
-    myCal = CalibrateRGBImage('W')
-    spectralImage = myCal.getSpectralImage(rawImage)
-
-    # show the calibrated spectral image in spectral viewer
-    from HSIplasmon.SpectraViewerModel2 import SpectraViewerModel2
-    wavelength = myCal.getWavelength()
-    sViewer = SpectraViewerModel2(spectralImage, wavelength)
-    sViewer.run()
 
 
 

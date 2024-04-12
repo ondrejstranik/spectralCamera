@@ -16,8 +16,8 @@ from viscope.instrument.base.baseCamera import BaseCamera
 class WebCamera(BaseCamera):
     ''' class to control usb/integrated camera. wrapper for cv2 '''
     DEFAULT = {'name': 'webCamera',
-                'exposureTime': 1/32,
-                'nFrames': 1,
+                #'exposureTime': 10, # ms initially automatically set the exposure time
+                'nFrame': 1,
                 'cameraIdx': 0}
 
     def __init__(self, name=DEFAULT['name'],*args, **kwargs):
@@ -27,8 +27,10 @@ class WebCamera(BaseCamera):
         
         # camera parameters
         self.cameraIdx = kwargs['cameraIdx'] if 'cameraIdx' in kwargs else WebCamera.DEFAULT['cameraIdx']
-        self.exposureTime = BaseCamera.DEFAULT['exposureTime']
-        self.nFrame = BaseCamera.DEFAULT['nFrame']
+        #self.exposureTime = WebCamera.DEFAULT['exposureTime']
+        self.exposureTime = None
+
+        self.nFrame = WebCamera.DEFAULT['nFrame']
 
         self.cap = None
 
@@ -38,11 +40,13 @@ class WebCamera(BaseCamera):
         self.cap = cv2.VideoCapture(self.cameraIdx)
         # switch off auto-exposure
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1) 
-        self._setExposureTime(self.exposureTime)
 
         # get the image size
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+        # get the camera optimal exposure time 
+        self.exposureTime = self.getParameter('exposureTime')
 
     def disconnect(self):
         super().disconnect()
@@ -69,14 +73,25 @@ class WebCamera(BaseCamera):
         self.rawImage = myframe/self.nFrame
         return self.rawImage
 
-    def _setExposureTime(self,value):
-        self.cap.set(cv2.CAP_PROP_EXPOSURE, value/1000)
+    def _setExposureTime(self,value): # ms
+        # the expression for the value of in cap.set is following:
+        # 2**(cap.set-value-) = value [s]) 
+
+        print(f'set Exposure Time {value}')
+        print(f'set cap.set-value- {np.log2(value/1000)}')        
+        self.cap.set(cv2.CAP_PROP_EXPOSURE, np.log2(value/1000))
+
         self.exposureTime = value
 
     def _getExposureTime(self):
         _exposureTime = self.cap.get(cv2.CAP_PROP_EXPOSURE)
+        print(f'cap.set-value- {_exposureTime}')
         if _exposureTime >0:
-            self.exposureTime = self.cap.get(cv2.CAP_PROP_EXPOSURE)
+            self.exposureTime = _exposureTime
+        else:
+            self.exposureTime = 2**(_exposureTime)*1000
+        print(f'self.exposureTime {self.exposureTime}')
+
         return self.exposureTime
 
     def _setParameterOpenCV(self, parameter=None, value=None):
