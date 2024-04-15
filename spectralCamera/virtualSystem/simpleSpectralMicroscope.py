@@ -11,6 +11,7 @@ import time
 
 from viscope.virtualSystem.base.baseSystem import BaseSystem
 from viscope.virtualSystem.component.component import Component
+from spectralCamera.virtualSystem.component.component2 import Component2
 from spectralCamera.virtualSystem.component.sample2 import Sample2
 
 import numpy as np
@@ -37,25 +38,21 @@ class SimpleSpectralMicroscope(BaseSystem):
         ''' update the virtual Frame of the camera '''
 
         # image sample onto dispersive element
-
+        # which is only a part of the camera chip size
         iFrame=self.sample.get()
         oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height'),
                     self.device['camera'].getParameter('width')//iFrame.shape[0]))
-        
         Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
                         magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
-
-
-        # disperse the image
+        # disperse the image horizontally 
         # it will disperse the channel into single wavelength images aligned horizontally 
-        oFrame = np.moveaxis(oFrame,0,1)
-        oFrame = np.reshape(oFrame,(oFrame.shape[0],-1))
+        oFrame = Component2.disperseHorizontal(oFrame)
 
-        # image it onto camera-chip
+        # image it onto camera-chip (1:1)
+        # but it automatically adjust the potential different size of the dispersed image and the camera chip
         oFrame = Component.ideal4fImagingOnCamera(camera=self.device['camera'],iFrame=oFrame,
                                 iFramePosition=np.array([0,0]),iPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'],
                                 magnification=1)
-
 
         print('virtual Frame updated')
 
@@ -80,40 +77,4 @@ class SimpleSpectralMicroscope(BaseSystem):
 
 if __name__ == '__main__':
 
-    from viscope.instrument.virtual.virtualCamera import VirtualCamera
-    from viscope.main import Viscope
-    from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
-    from spectralCamera.instrument.sCamera.sCamera import SCamera
-    from spectralCamera.algorithm.calibrateRGBImages import CalibrateRGBImage
-    from spectralCamera.gui.xywViewerGUI import XYWViewerGui
-
-    #camera
-    camera = VirtualCamera()
-    camera.connect()
-    camera.setParameter('threadingNow',True)
-
-    #spectral camera
-    sCal = CalibrateRGBImage(rgbOrder='RGB')
-    sCamera = SCamera(name='sCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
-    sCamera.setParameter('calibrationData',sCal)
-    sCamera.setParameter('threadingNow',True)
-
-
-    # virtual microscope
-    vM = SimpleSpectralMicroscope()
-    vM.setVirtualDevice(camera)
-    vM.connect()
-
-    # main event loop
-    viscope = Viscope()
-    newGUI  = XYWViewerGui(viscope)
-    newGUI.setDevice(sCamera)
-    viscope.run()
-
-    camera.disconnect()
-    sCamera.disconnect()
-    vM.disconnect()
-
-
+    pass

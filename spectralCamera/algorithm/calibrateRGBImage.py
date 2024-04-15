@@ -29,8 +29,8 @@ class CalibrateRGBImage():
         else:
             self.wavelength = wavelength
 
-        if self.rgbOrder == 'W':
-            self.wavelength = [(np.mean(np.array(self.wavelength)))]
+        #if self.rgbOrder == 'W':
+        #    self.wavelength = [(np.mean(np.array(self.wavelength)))]
 
 
     def getSpectralImage(self,rawImage,*args):
@@ -52,8 +52,8 @@ class CalibrateRGBImage():
             WYXImage[1,:,:] = (rawImage[0::2,1::2]  + rawImage[1::2,0::2]) / 2 # green
             WYXImage[2,:,:] = rawImage[0::2,0::2]  # red
 
-        if self.rgbOrder== 'W': # black/white image
-            WYXImage = rawImage[None,...]
+        #if self.rgbOrder== 'W': # black/white image
+        #    WYXImage = rawImage[None,...]
 
         return  WYXImage
 

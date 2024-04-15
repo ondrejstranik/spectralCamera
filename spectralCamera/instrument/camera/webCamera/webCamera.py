@@ -18,18 +18,20 @@ class WebCamera(BaseCamera):
     DEFAULT = {'name': 'webCamera',
                 #'exposureTime': 10, # ms initially automatically set the exposure time
                 'nFrame': 1,
-                'cameraIdx': 0}
+                'cameraIdx': 0,
+                'filterType': 'RGGB'} # type of the filter 'RGB', 'RGGB','BW'
 
-    def __init__(self, name=DEFAULT['name'],*args, **kwargs):
+    def __init__(self, name=DEFAULT['name'],*args,**kwargs):
         ''' initialisation '''
 
-        super().__init__(name=name,*args, **kwargs)
+        super().__init__(name=name,**kwargs)
         
         # camera parameters
         self.cameraIdx = kwargs['cameraIdx'] if 'cameraIdx' in kwargs else WebCamera.DEFAULT['cameraIdx']
+        self.filterType = kwargs['filterType'] if 'filterType' in kwargs else WebCamera.DEFAULT['filterType']
+
         #self.exposureTime = WebCamera.DEFAULT['exposureTime']
         self.exposureTime = None
-
         self.nFrame = WebCamera.DEFAULT['nFrame']
 
         self.cap = None
@@ -44,6 +46,11 @@ class WebCamera(BaseCamera):
         # get the image size
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        if self.filterType == 'RGB':
+            self.width *= 3
+        if self.filterType == 'RGGB':
+            self.width *= 2
+            self.height *= 2
 
         # get the camera optimal exposure time 
         self.exposureTime = self.getParameter('exposureTime')
@@ -51,7 +58,6 @@ class WebCamera(BaseCamera):
     def disconnect(self):
         super().disconnect()
         self.cap.release()
-
 
     def __str__(self):
         return 'OpenCV Camera {}'.format(self.cameraIdx)
@@ -64,12 +70,32 @@ class WebCamera(BaseCamera):
                 ret, temporary_frame = self.cap.read()
                 time.sleep(0.03)
 
-            if myframe is None:
-                myshape = np.shape(temporary_frame.T)
-                myframe = np.reshape(temporary_frame.T, (myshape[0]*myshape[1], myshape[2]))
-                myframe = myframe.astype('int64').T
-            else:
-                myframe = myframe + np.reshape(temporary_frame.T, (myshape[0]*myshape[1], myshape[2])).T
+            if self.filterType == 'RGB':
+                if myframe is None:
+                    myshape = np.shape(temporary_frame.T)
+                    myframe = np.reshape(temporary_frame.T, (myshape[0]*myshape[1], myshape[2]))
+                    myframe = myframe.astype('int64').T
+                else:
+                    myframe = myframe + np.reshape(temporary_frame.T, (myshape[0]*myshape[1], myshape[2])).T
+
+            if self.filterType == 'RGGB':
+                _myframe = np.empty((temporary_frame.shape[0]*2,temporary_frame.shape[1]*2))
+                _myframe[0::2,0::2] = temporary_frame[:,:,0] #R
+                _myframe[0::2,1::2] = temporary_frame[:,:,1] //2 #R
+                _myframe[1::2,0::2] = temporary_frame[:,:,1] //2 #R
+                _myframe[1::2,1::2] = temporary_frame[:,:,2] //2 #B
+                if myframe is None:
+                    myframe = _myframe.astype('int64')
+                else:
+                    myframe = myframe + _myframe
+
+            if self.filterType == 'BW':
+                _myFrame = np.sum(temporary_frame,axis=0)
+                if myframe is None:
+                    myframe = _myframe.astype('int64')
+                else:
+                    myframe = myframe + _myframe                
+
         self.rawImage = myframe/self.nFrame
         return self.rawImage
 
@@ -114,16 +140,6 @@ class WebCamera(BaseCamera):
 #%%
 
 if __name__ == '__main__':
-    from viscope.gui.allDeviceGUI import AllDeviceGUI
-    from viscope.main import Viscope
+    pass
 
-    camera = WebCamera(name='WebCamera')
-    camera.connect()
-    camera.setParameter('threadingNow',True)
 
-    viscope = Viscope()
-    newGUI  = AllDeviceGUI(viscope)
-    newGUI.setDevice([camera])
-    viscope.run()
-
-    camera.disconnect()

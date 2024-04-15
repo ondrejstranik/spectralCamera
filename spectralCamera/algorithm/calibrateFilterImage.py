@@ -54,7 +54,7 @@ class CalibrateFilterImage():
 if __name__ == "__main__":
 
     import napari
-    import numpy
+    import numpy as np
     from spectralCamera.virtualSystem.component.component2 import Component2
 
 

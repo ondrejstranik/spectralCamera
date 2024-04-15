@@ -24,7 +24,8 @@ class Sample2(Sample):
     def setSpectralAstronaut(self,samplePixelSize=None,
                         sampleSize= None,
                         photonRateMax= None,
-                        samplePosition = None):
+                        samplePosition = None,
+                        wavelength  = None):
         ''' define the sample.
         sample ... spatial distribution of photon rates [#/s/pixelSize^2] (no noise)'''
 
@@ -89,7 +90,9 @@ class Sample2(Sample):
 
         self.data = _sample
 
-
+    def getWavelength(self):
+        ''' get wavelength range '''
+        return self.wavelength
 
 #%%
 

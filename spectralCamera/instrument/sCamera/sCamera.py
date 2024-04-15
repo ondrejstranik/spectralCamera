@@ -11,7 +11,7 @@ import os
 import time
 import numpy as np
 from viscope.instrument.base.baseInstrument import BaseInstrument
-from spectralCamera.algorithm.calibrateRGBImages import CalibrateRGBImage
+from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
 from spectralCamera.algorithm.calibrateLoader import CalibrateLoader
 
 

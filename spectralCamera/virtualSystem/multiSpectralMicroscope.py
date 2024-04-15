@@ -12,7 +12,7 @@ import time
 from viscope.virtualSystem.base.baseSystem import BaseSystem
 from viscope.virtualSystem.component.component import Component
 from spectralCamera.virtualSystem.component.sample2 import Sample2
-
+from spectralCamera.virtualSystem.component.component2 import Component2
 import numpy as np
 
 
@@ -38,7 +38,6 @@ class MultiSpectralMicroscope(BaseSystem):
         ''' update the virtual Frame of the camera '''
 
         # image sample onto dispersive element
-
         iFrame=self.sample.get()
         oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height'),
                     self.device['camera'].getParameter('width')//iFrame.shape[0]))
@@ -85,7 +84,7 @@ if __name__ == '__main__':
     from viscope.main import Viscope
     from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
     from spectralCamera.instrument.sCamera.sCamera import SCamera
-    from spectralCamera.algorithm.calibrateRGBImages import CalibrateRGBImage
+    from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
 
     #camera
