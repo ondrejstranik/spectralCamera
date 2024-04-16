@@ -19,7 +19,7 @@ import numpy as np
 
 class SimpleSpectralMicroscope(BaseSystem):
     ''' class to emulate microscope '''
-    DEFAULT = {'magnification': 1}
+    DEFAULT = {}
                
     
     def __init__(self,*args, **kwargs):

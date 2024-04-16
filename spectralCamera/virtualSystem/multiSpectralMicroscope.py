@@ -18,7 +18,7 @@ import numpy as np
 
 class MultiSpectralMicroscope(BaseSystem):
     ''' class to emulate microscope '''
-    DEFAULT = {'magnification': 1}
+    DEFAULT = {}
                
     
     def __init__(self,*args, **kwargs):
@@ -36,20 +36,36 @@ class MultiSpectralMicroscope(BaseSystem):
 
     def calculateVirtualFrame(self):
         ''' update the virtual Frame of the camera '''
-
+        # TODO: set the spectral channel size
+        # TODO: set the dispersionIntoBlock
+        
         # image sample onto dispersive element
         iFrame=self.sample.get()
-        oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height'),
-                    self.device['camera'].getParameter('width')//iFrame.shape[0]))
-        
-        Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
-                        magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
 
-
-        # disperse the image
+        # horizontal dispersion (RGB)
         # it will disperse the channel into single wavelength images aligned horizontally 
-        oFrame = np.moveaxis(oFrame,0,1)
-        oFrame = np.reshape(oFrame,(oFrame.shape[0],-1))
+        if hasattr(self.device['sCamera'].spectraCalibration,'rgbOrder') and (
+            self.device['sCamera'].spectraCalibration.rgbOrder == 'RGB'):
+            
+            oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height'),
+                        self.device['camera'].getParameter('width')//iFrame.shape[0]))
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+                            magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
+            oFrame = Component2.disperseHorizontal(oFrame)
+
+        # RGGB dispersion onto super-pixels
+        if hasattr(self.device['sCamera'].spectraCalibration,'rgbOrder') and (
+            self.device['sCamera'].spectraCalibration.rgbOrder == 'RGGB'):
+            oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height')//2,
+                        self.device['camera'].getParameter('width')//2))
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+                            magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
+            oFrame = Component2.disperseIntoRGGBBlock(oFrame)
+
+
+
+
+
 
         # image it onto camera-chip
         oFrame = Component.ideal4fImagingOnCamera(camera=self.device['camera'],iFrame=oFrame,

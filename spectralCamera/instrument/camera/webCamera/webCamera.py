@@ -140,6 +140,14 @@ class WebCamera(BaseCamera):
 #%%
 
 if __name__ == '__main__':
-    pass
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
+
+    cam = WebCamera(name='WebCamera',filterType='RGGB')
+    cam.connect()
+    cam.setParameter('exposureTime',300)
+    cam.setParameter('nFrames', 5)
+
+    cam._displayStreamOfImages()
+    cam.disconnect()
 
 
