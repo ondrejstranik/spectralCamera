@@ -73,6 +73,7 @@ def test_simpleSpectralMicroscope2():
     sCamera.disconnect()
     vM.disconnect()
 
+@pytest.mark.GUI
 def test_simpleSpectralMicroscope3():
     ''' reference test to test2 but with real webcam'''
     from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
@@ -108,3 +109,56 @@ def test_simpleSpectralMicroscope3():
 
     camera.disconnect()
     sCamera.disconnect()
+
+@pytest.mark.GUI
+def test_multiSpectralMicroscope():
+
+    from viscope.instrument.virtual.virtualCamera import VirtualCamera
+    from viscope.main import Viscope
+    from spectralCamera.virtualSystem.multiSpectralMicroscope import MultiSpectralMicroscope
+    from spectralCamera.instrument.sCamera.sCamera import SCamera
+    from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
+    from spectralCamera.algorithm.calibrateFilterImage import CalibrateFilterImage    
+    from spectralCamera.gui.xywViewerGUI import XYWViewerGui
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+
+    #camera
+    camera = VirtualCamera()
+    camera.connect()
+    camera.setParameter('threadingNow',True)
+
+    camera2 = VirtualCamera(name='BWCamera')
+    camera2.connect()
+    camera2.setParameter('threadingNow',True)
+
+
+    #spectral camera
+    #sCal = CalibrateRGBImage()
+    sCal = CalibrateFilterImage()
+
+    sCamera = SCamera(name='sCamera')
+    sCamera.connect()
+    sCamera.setParameter('camera',camera)
+    sCamera.setParameter('calibrationData',sCal)
+    sCamera.setParameter('threadingNow',True)
+
+
+    # virtual microscope
+    vM = MultiSpectralMicroscope()
+    vM.setVirtualDevice(sCamera=sCamera, camera2=camera2)
+    vM.connect()
+
+    # main event loop
+    viscope = Viscope()
+    newGUI  = XYWViewerGui(viscope)
+    newGUI.setDevice(sCamera)
+
+    viewer  = AllDeviceGUI(viscope)
+    viewer.setDevice([camera,camera2])
+
+    viscope.run()
+
+    camera.disconnect()
+    camera2.disconnect()
+    sCamera.disconnect()
+    vM.disconnect()
