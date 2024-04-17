@@ -54,7 +54,7 @@ class Component2():
         return spIndex
 
     @classmethod
-    def getModifiedSpectraImage(cls,spImage,rangeIn,rangeOut):
+    def spectraRangeAdjustment(cls,spImage,rangeIn,rangeOut):
         ''' adjust the spectral range of the image
         it is simple indexing of the original image '''
 

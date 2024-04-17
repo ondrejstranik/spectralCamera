@@ -12,7 +12,7 @@ class CalibrateFilterImage():
     ''' main class to calibrate filter based images '''
 
     DEFAULT = {'wavelengthRange': np.array([400,800]), # 
-               'order' : 5 } # number of filter channels Order**2 (aligned in a square)
+               'order' : 3 } # number of filter channels Order**2 (aligned in a square)
 
     def __init__(self,order=None, wavelengthRange=None):
         ''' initialise the class '''
@@ -32,10 +32,13 @@ class CalibrateFilterImage():
     def getSpectralImage(self,rawImage,**kwargs):
         ''' get the spectral image from raw image'''
 
+
         # crop to the proper size
         myShape = np.array(np.shape(rawImage))//self.order*self.order
-        WYXImage = rawImage[0:myShape[0]+1,0:myShape[1]+1]
-        
+        #WYXImage = rawImage[0:myShape[0]+1,0:myShape[1]+1]
+        WYXImage = rawImage[0:myShape[0],0:myShape[1]]
+
+
         WYXImage = np.reshape(WYXImage,
                     (myShape[0]//self.order,self.order,myShape[1]//self.order,self.order))
         WYXImage = np.swapaxes(WYXImage,1,2)
@@ -53,30 +56,7 @@ class CalibrateFilterImage():
 
 if __name__ == "__main__":
 
-    import napari
-    import numpy as np
-    from spectralCamera.virtualSystem.component.component2 import Component2
-
-
-    singleImage = np.ones((40,50))
-    spec = np.arange(9)
-    rawImage = np.zeros((3*40,3*50))
-    for ii in range(3):
-        for jj in range(3):
-            rawImage[ii::3,jj::3] = singleImage*spec[ii*3+jj]
-
-    myCal = CalibrateFilterImage(order=3)
-
-    spImage = myCal.getSpectralImage(rawImage)
-
-    mv = napari.Viewer()
-    mv.add_image(spImage)
-
-    mv2 = napari.Viewer()
-    mv2.add_image(Component2.disperseIntoBlock(spImage,np.array((4,2))))
-
-
-    napari.run()
+    pass
 
 
 

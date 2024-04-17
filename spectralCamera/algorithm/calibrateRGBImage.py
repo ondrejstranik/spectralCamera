@@ -11,7 +11,7 @@ import napari
 class CalibrateRGBImage():
     ''' main class to calibrate rgb images '''
 
-    DEFAULT = {'wavelength': np.array([400,550,610]),
+    DEFAULT = {'wavelength': np.array([400,550,700]),
                'rgbOrder' : 'RGGB' }
 
     def __init__(self,rgbOrder=None, wavelength=None):
