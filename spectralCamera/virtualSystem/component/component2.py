@@ -38,8 +38,19 @@ class Component2():
         the wavelength are dispersed into blocks of superPixels'''
         oFrame = np.moveaxis(iFrame,0,1)
         oFrame = np.reshape(oFrame,(oFrame.shape[0],-1))
-
         return oFrame
+
+    def disperseIntoRGGBBlock(cls, iFrame:np.ndarray):
+        ''' reshape into RGGB super pixel '''
+        oFrame = np.empty((iFrame.shape[1]*2,iFrame.shape[0]))        
+        oFrame[0::2,0::2] = iFrame[:,:,0] #R
+        oFrame[0::2,1::2] = iFrame[:,:,1] //2 #R
+        oFrame[1::2,0::2] = iFrame[:,:,1] //2 #R
+        oFrame[1::2,1::2] = iFrame[:,:,2] //2 #B
+        return oFrame
+
+
+
 
     @classmethod
     def _SpectraToSpectraIdx(cls,source,destination):
