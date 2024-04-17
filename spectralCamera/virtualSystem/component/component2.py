@@ -56,20 +56,24 @@ class Component2():
         lines are dispersed horizontally '''
         #TODO: correct value assignment
 
+        gridVector = np.array(gridVector)
 
         nW = iFrame.shape[0]
         nY = iFrame.shape[1]
         nX = iFrame.shape[2]
 
         xIdx, yIdx = np.meshgrid(np.arange(nX), np.arange(nY))
-        xMin = np.min(xIdx)
-        yMin = np.min(yIdx)
-        positionIdx = np.array([yIdx.ravel()-yMin,xIdx.ravel()-xMin])
+    
+        positionIdx = np.array([yIdx.ravel(),xIdx.ravel()])
 
-        oFrame = np.zeros((np.max(positionIdx[0]),np.max(positionIdx[1])+nW))
+        gridVector2 = np.array([-gridVector[1],gridVector[0]])
+        positionYX = positionIdx[0][:,None]*gridVector2 + positionIdx[1][:,None]*gridVector
+        positionYX = positionYX - np.min(positionYX, axis=0)
+
+        oFrame = np.zeros((np.max(positionYX[:,0])+1,np.max(positionYX[:,1])+nW+1))
 
         for ii in range(nW):
-            oFrame[positionIdx[0],positionIdx[1]+ii] = iFrame[ii,:,:]
+            oFrame[positionYX[:,0],positionYX[:,1]+ii] = iFrame[ii,positionIdx[0],positionIdx[1]]
         
         return oFrame
 
@@ -98,10 +102,12 @@ class Component2():
 if __name__ == '__main__':
 
     import napari
-    spImage = np.random.rand(30,5,10)
-    oFrame =Component2.disperseIntoLines(spImage)
+    spImage = np.random.rand(30,5,10) +1
+    oFrame =Component2.disperseIntoLines(spImage, gridVector=[4,10])
 
     viewer = napari.view_image(oFrame)
+
+    napari.run()
 
 
 
