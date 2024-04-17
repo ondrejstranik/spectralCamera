@@ -133,8 +133,8 @@ def test_multiSpectralMicroscope():
 
 
     #spectral camera
-    #sCal = CalibrateRGBImage()
-    sCal = CalibrateFilterImage()
+    sCal = CalibrateRGBImage(rgbOrder='RGGB')
+    #sCal = CalibrateFilterImage()
 
     sCamera = SCamera(name='sCamera')
     sCamera.connect()
@@ -158,7 +158,7 @@ def test_multiSpectralMicroscope():
 
     viscope.run()
 
+    sCamera.disconnect()
     camera.disconnect()
     camera2.disconnect()
-    sCamera.disconnect()
     vM.disconnect()

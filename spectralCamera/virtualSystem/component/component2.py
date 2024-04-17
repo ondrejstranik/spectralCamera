@@ -39,18 +39,39 @@ class Component2():
         oFrame = np.moveaxis(iFrame,0,1)
         oFrame = np.reshape(oFrame,(oFrame.shape[0],-1))
         return oFrame
-
+    @classmethod
     def disperseIntoRGGBBlock(cls, iFrame:np.ndarray):
         ''' reshape into RGGB super pixel '''
-        oFrame = np.empty((iFrame.shape[1]*2,iFrame.shape[0]))        
-        oFrame[0::2,0::2] = iFrame[:,:,0] #R
-        oFrame[0::2,1::2] = iFrame[:,:,1] //2 #R
-        oFrame[1::2,0::2] = iFrame[:,:,1] //2 #R
-        oFrame[1::2,1::2] = iFrame[:,:,2] //2 #B
+        oFrame = np.empty((iFrame.shape[1]*2,iFrame.shape[2]*2))        
+        oFrame[0::2,0::2] = iFrame[0,:,:] #R
+        oFrame[0::2,1::2] = iFrame[1,:,:] //2 #R
+        oFrame[1::2,0::2] = iFrame[1,:,:] //2 #R
+        oFrame[1::2,1::2] = iFrame[2,:,:] #B
         return oFrame
 
+    @classmethod
+    def disperseIntoLines(cls,iFrame:np.ndarray, gridVector = np.array([2,5])):
+        ''' disperse it into a lines, imitate Integral field camera
+        set of micro-lenses with slanted grating dispersion element
+        lines are dispersed horizontally '''
+        #TODO: correct value assignment
 
 
+        nW = iFrame.shape[0]
+        nY = iFrame.shape[1]
+        nX = iFrame.shape[2]
+
+        xIdx, yIdx = np.meshgrid(np.arange(nX), np.arange(nY))
+        xMin = np.min(xIdx)
+        yMin = np.min(yIdx)
+        positionIdx = np.array([yIdx.ravel()-yMin,xIdx.ravel()-xMin])
+
+        oFrame = np.zeros((np.max(positionIdx[0]),np.max(positionIdx[1])+nW))
+
+        for ii in range(nW):
+            oFrame[positionIdx[0],positionIdx[1]+ii] = iFrame[ii,:,:]
+        
+        return oFrame
 
     @classmethod
     def _SpectraToSpectraIdx(cls,source,destination):
@@ -75,5 +96,18 @@ class Component2():
 
 #%%
 if __name__ == '__main__':
-    pass  
+
+    import napari
+    spImage = np.random.rand(30,5,10)
+    oFrame =Component2.disperseIntoLines(spImage)
+
+    viewer = napari.view_image(oFrame)
+
+
+
+
+
+
+
+
 
