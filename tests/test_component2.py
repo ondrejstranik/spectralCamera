@@ -26,6 +26,22 @@ def test_disperseIntoBlock():
     assert rawImage == pytest.approx(diImage)
 
 @pytest.mark.GUI
+def test_disperseIntoLines():
+    ''' visual check of the line dispersion '''
+    import napari
+    import numpy as np
+    from spectralCamera.virtualSystem.component.component2 import Component2
+    
+    
+    spImage = np.random.rand(30,5,10) +1
+    oFrame =Component2.disperseIntoLines(spImage, gridVector=[4,10])
+
+    viewer = napari.view_image(oFrame)
+
+    napari.run()
+
+
+@pytest.mark.GUI
 def test_getModifiedSpectraImage():
     ''' check the spectral resampling '''
 

@@ -101,13 +101,7 @@ class Component2():
 #%%
 if __name__ == '__main__':
 
-    import napari
-    spImage = np.random.rand(30,5,10) +1
-    oFrame =Component2.disperseIntoLines(spImage, gridVector=[4,10])
-
-    viewer = napari.view_image(oFrame)
-
-    napari.run()
+    pass
 
 
 
