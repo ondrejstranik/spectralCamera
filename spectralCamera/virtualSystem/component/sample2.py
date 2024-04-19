@@ -90,6 +90,45 @@ class Sample2(Sample):
 
         self.data = _sample
 
+    def setCalibrationImage(self,samplePixelSize=None,
+                        sampleSize= None,
+                        photonRateMax= None,
+                        samplePosition = None,
+                        wavelength  = None,
+                        calibrationWavelength = None):
+
+        DEFAULT = {'photonRateMax':1e6,
+                    'samplePixelSize':1, # um
+                    'sampleSize': (200,400),
+                    'samplePosition': np.array([0,0,0]),  # pixels
+                    'wavelength': np.arange(400,800,10),
+                    'calibrationWavelength': np.array([500,700])}
+
+        self.pixelSize=DEFAULT['samplePixelSize'] if samplePixelSize is None else samplePixelSize
+        self.size=DEFAULT['sampleSize'] if sampleSize is None else sampleSize
+        self.position=DEFAULT['samplePosition'] if samplePosition is None else samplePosition
+        self.wavelength = DEFAULT['wavelength'] if wavelength is None else wavelength
+        self.calibrationWavelength = DEFAULT['calibrationWavelength'] if calibrationWavelength is None else calibrationWavelength       
+
+        photonRateMax=DEFAULT['photonRateMax'] if photonRateMax is None else photonRateMax        
+
+        # give constant spectral  background
+        _sample = np.ones((self.wavelength.shape[0],*self.size))
+
+        # adjust calibration wavelength on the whole pixels
+        cW0idx = np.argmin(np.abs(self.wavelength-self.calibrationWavelength[0]))
+        cW1idx = np.argmin(np.abs(self.wavelength-self.calibrationWavelength[1]))
+        self.calibrationWavelength = self.wavelength[[cW0idx,cW1idx]]
+
+        # set the two calibration wavelength
+        _sample[cW0idx,...]= 5
+        _sample[cW1idx,...]= 3
+
+        # normalise
+        _sample = _sample/np.max(_sample)*photonRateMax
+
+        self.data = _sample
+
     def getWavelength(self):
         ''' get wavelength range '''
         return self.wavelength

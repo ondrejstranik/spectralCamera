@@ -133,8 +133,8 @@ def test_multiSpectralMicroscope():
 
 
     #spectral camera
-    sCal = CalibrateRGBImage(rgbOrder='RGGB')
-    #sCal = CalibrateFilterImage()
+    #sCal = CalibrateRGBImage(rgbOrder='RGGB')
+    sCal = CalibrateFilterImage()
 
     sCamera = SCamera(name='sCamera')
     sCamera.connect()

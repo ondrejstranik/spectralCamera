@@ -4,34 +4,24 @@ class to calibrate RGB Images
 
 import numpy as np
 
-
-import napari
-
-
-class CalibrateRGBImage():
+class CalibrateRGBImage(BaseCalibrate):
     ''' main class to calibrate rgb images '''
 
     DEFAULT = {'wavelength': np.array([400,550,700]),
                'rgbOrder' : 'RGGB' }
 
-    def __init__(self,rgbOrder=None, wavelength=None):
+    def __init__(self,rgbOrder=None, wavelength=None, **kwargs):
         ''' initialise the class 
         rgbOrder ... string defining the order of RGB channels
         wavelength ... list with wavelength'''
-        
+
+        if wavelength is None: wavelength = CalibrateRGBImage.DEFAULT['wavelength']
+        super().__init__(wavelength=wavelength,**kwargs)
+
         if rgbOrder is None:
             self.rgbOrder = self.DEFAULT['rgbOrder']
         else:
             self.rgbOrder = rgbOrder     
-
-        if wavelength is None:
-            self.wavelength = self.DEFAULT['wavelength']
-        else:
-            self.wavelength = wavelength
-
-        #if self.rgbOrder == 'W':
-        #    self.wavelength = [(np.mean(np.array(self.wavelength)))]
-
 
     def getSpectralImage(self,rawImage,*args):
         ''' get the spectral image from raw image'''
@@ -52,14 +42,7 @@ class CalibrateRGBImage():
             WYXImage[1,:,:] = (rawImage[0::2,1::2]  + rawImage[1::2,0::2]) / 2 # green
             WYXImage[2,:,:] = rawImage[0::2,0::2]  # red
 
-        #if self.rgbOrder== 'W': # black/white image
-        #    WYXImage = rawImage[None,...]
-
         return  WYXImage
-
-    def getWavelength(self):
-        ''' get the RGB wavelengths '''
-        return self.wavelength
 
 if __name__ == "__main__":
     pass

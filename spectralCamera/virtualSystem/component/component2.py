@@ -50,7 +50,7 @@ class Component2():
         return oFrame
 
     @classmethod
-    def disperseIntoLines(cls,iFrame:np.ndarray, gridVector = np.array([2,5])):
+    def disperseIntoLines(cls,iFrame:np.ndarray, gridVector = np.array([7,10])):
         ''' disperse it into a lines, imitate Integral field camera
         set of micro-lenses with slanted grating dispersion element
         lines are dispersed horizontally '''
@@ -75,7 +75,12 @@ class Component2():
         for ii in range(nW):
             oFrame[positionYX[:,0],positionYX[:,1]+ii] = iFrame[ii,positionIdx[0],positionIdx[1]]
         
-        return oFrame
+        print(f'position {positionYX[0,:]}')
+        print(f'index {positionIdx[0,:]}')
+
+
+        return (oFrame, positionYX[0,:])
+
 
     @classmethod
     def _SpectraToSpectraIdx(cls,source,destination):
