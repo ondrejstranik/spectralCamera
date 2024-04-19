@@ -1,22 +1,21 @@
 '''
-class to calibrate RGB Images
+class to calibrate filter based Images
 '''
 
 import numpy as np
+from spectralCamera.algorithm.baseCalibrate import BaseCalibrate
 
-
-import napari
-
-
-class CalibrateFilterImage():
+class CalibrateFilterImage(BaseCalibrate):
     ''' main class to calibrate filter based images '''
 
     DEFAULT = {'wavelengthRange': np.array([400,800]), # 
                'order' : 3 } # number of filter channels Order**2 (aligned in a square)
 
-    def __init__(self,order=None, wavelengthRange=None):
+    def __init__(self,order=None, wavelengthRange=None, **kwargs):
         ''' initialise the class '''
         
+        super().__init__(**kwargs)
+
         if order is None:
             self.order = self.DEFAULT['order']
         else:
@@ -31,7 +30,6 @@ class CalibrateFilterImage():
 
     def getSpectralImage(self,rawImage,**kwargs):
         ''' get the spectral image from raw image'''
-
 
         # crop to the proper size
         myShape = np.array(np.shape(rawImage))//self.order*self.order
@@ -50,9 +48,6 @@ class CalibrateFilterImage():
 
         return  WYXImage
 
-    def getWavelength(self):
-        ''' get the wavelengths '''
-        return self.wavelength
 
 if __name__ == "__main__":
 

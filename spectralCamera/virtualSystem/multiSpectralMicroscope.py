@@ -28,6 +28,7 @@ class MultiSpectralMicroscope(BaseSystem):
         # set default spectral sample
         self.sample = Sample2()
         self.sample.setSpectralDisk()
+        #self.sample.setCalibrationImage()
 
     def setVirtualDevice(self,sCamera=None, camera2=None):
         ''' set instruments of the microscope '''
@@ -41,35 +42,37 @@ class MultiSpectralMicroscope(BaseSystem):
         
         # image sample onto dispersive element
         iFrame=self.sample.get()
+        # adjust wavelength
+        iFrame = Component2.spectraRangeAdjustment(iFrame,self.sample.getWavelength(),self.device['sCamera'].getWavelength())
 
         # horizontal dispersion (RGB)
         # it will disperse the channel into single wavelength images aligned horizontally 
         if self.device['sCamera'].spectraCalibration.__class__.__name__ =='CalibrateRGBImage' and (
             self.device['sCamera'].spectraCalibration.rgbOrder == 'RGB'):
             
-            # adjust wavelength
-            iFrame = Component2.spectraRangeAdjustment(iFrame,self.sample.getWavelength(),self.device['sCamera'].getWavelength())
             oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height'),
                         self.device['camera'].getParameter('width')//iFrame.shape[0]))
             Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
             oFrame = Component2.disperseHorizontal(oFrame)
 
+            iFramePosition = np.array([0,0]) 
+
         # RGGB dispersion onto super-pixels
         if self.device['sCamera'].spectraCalibration.__class__.__name__ =='CalibrateRGBImage' and (
             self.device['sCamera'].spectraCalibration.rgbOrder == 'RGGB'):
-            # adjust wavelength
-            iFrame = Component2.spectraRangeAdjustment(iFrame,self.sample.getWavelength(),self.device['sCamera'].getWavelength())
 
             oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height')//2,
                         self.device['camera'].getParameter('width')//2))
             Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
             oFrame = Component2.disperseIntoRGGBBlock(oFrame)
+
+            iFramePosition = np.array([0,0]) 
+
         # dispersion on square super-pixel
         if self.device['sCamera'].spectraCalibration.__class__.__name__== 'CalibrateFilterImage':
-            # adjust wavelength
-            iFrame = Component2.spectraRangeAdjustment(iFrame,self.sample.getWavelength(),self.device['sCamera'].getWavelength())
+
             _order = self.device['sCamera'].spectraCalibration.order 
             oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height')//_order,
                         self.device['camera'].getParameter('width')//_order))
@@ -77,12 +80,31 @@ class MultiSpectralMicroscope(BaseSystem):
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
             oFrame = Component2.disperseIntoBlock(oFrame, blockShape=np.array([_order,_order]))
 
+            iFramePosition = np.array([0,0]) 
+
+
+        # disperse on integral field system
+        if self.device['sCamera'].spectraCalibration.__class__.__name__== 'CalibrateIFImage':
+        # TODO: finish it code!
+        
+            sCal = self.device['sCamera'].spectraCalibration
+            oFrame = np.zeros((iFrame.shape[0],*sCal.nYX))
+            
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+                            magnification=0.1,iPixelSize=self.sample.pixelSize,oPixelSize=self.sample.pixelSize)
+
+            (oFrame, position00) = Component2.disperseIntoLines(oFrame, gridVector = sCal.gridVector)
+        
+            iFramePosition = sCal.position00 - position00
+            #iFramePosition = np.array([0,0])  
+
         # image it onto camera-chip
-        # convinient way to crop not full superpixel
+        # convenient way to crop not full super-pixel
         oFrame = Component.ideal4fImagingOnCamera(camera=self.device['camera'],iFrame=oFrame,
-                                iFramePosition=np.array([0,0]),iPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'],
+                                iFramePosition=iFramePosition,iPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'],
                                 magnification=1)
 
+        print(f'oFrame.shape {oFrame.shape}')
 
         print('virtual Frame updated')
 

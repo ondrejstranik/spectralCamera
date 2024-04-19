@@ -31,28 +31,18 @@ def test_simpleSpectralMicroscope():
 def test_simpleSpectralMicroscope2():
     ''' check if virtual microscope works - show spectral and raw data'''
     #from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
-    from viscope.instrument.virtual.virtualCamera import VirtualCamera
     from viscope.main import Viscope
     from viscope.gui.allDeviceGUI import AllDeviceGUI
-    from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
-
-    from spectralCamera.instrument.sCamera.sCamera import SCamera
-    from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
 
-    #camera
-    camera = VirtualCamera()
-    camera.connect()
-    camera.setParameter('threadingNow',True)
+    from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
 
-    #spectral camera
-    sCal = CalibrateRGBImage(rgbOrder='RGB')
-    sCamera = SCamera(name='sCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
-    sCamera.setParameter('calibrationData',sCal)
-    sCamera.setParameter('threadingNow',True)
+    from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualRGBCamera
 
+    #spectral camera system
+    scs = VirtualRGBCamera(rgbOrder='RGB')
+    camera = scs.camera
+    sCamera = scs.sCamera
 
     # virtual microscope
     vM = SimpleSpectralMicroscope()
@@ -76,26 +66,19 @@ def test_simpleSpectralMicroscope2():
 @pytest.mark.GUI
 def test_simpleSpectralMicroscope3():
     ''' reference test to test2 but with real webcam'''
-    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
     from viscope.main import Viscope
     from viscope.gui.allDeviceGUI import AllDeviceGUI
-    from spectralCamera.instrument.sCamera.sCamera import SCamera
-    from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
 
-    #camera
-    camera = WebCamera()
-    camera.connect()
-    camera.setParameter('threadingNow',True)
+    from spectralCamera.instrument.sCamera.sCameraGenerator import RGBWebCamera
 
-    #spectral camera
-    sCal = CalibrateRGBImage(rgbOrder='RGGB')
-    sCamera = SCamera(name='sCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
-    sCamera.setParameter('calibrationData',sCal)
-    print(f'sCal order {sCamera.spectraCalibration.rgbOrder}')    
-    sCamera.setParameter('threadingNow',True)
+    from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
+
+
+    #spectral camera system
+    scs = RGBWebCamera(rgbOrder='RGB')
+    camera = scs.camera
+    sCamera = scs.sCamera
 
     # add gui
     viscope = Viscope()
@@ -112,36 +95,27 @@ def test_simpleSpectralMicroscope3():
 
 @pytest.mark.GUI
 def test_multiSpectralMicroscope():
-
     from viscope.instrument.virtual.virtualCamera import VirtualCamera
+    #from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualFilterCamera
+    from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualIFCamera
+
     from viscope.main import Viscope
-    from spectralCamera.virtualSystem.multiSpectralMicroscope import MultiSpectralMicroscope
-    from spectralCamera.instrument.sCamera.sCamera import SCamera
-    from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
-    from spectralCamera.algorithm.calibrateFilterImage import CalibrateFilterImage    
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
     from viscope.gui.allDeviceGUI import AllDeviceGUI
 
+    from spectralCamera.virtualSystem.multiSpectralMicroscope import MultiSpectralMicroscope
+    
     #camera
-    camera = VirtualCamera()
-    camera.connect()
-    camera.setParameter('threadingNow',True)
-
     camera2 = VirtualCamera(name='BWCamera')
     camera2.connect()
     camera2.setParameter('threadingNow',True)
 
+    #spectral camera system
+    #scs = VirtualFilterCamera()
+    scs = VirtualIFCamera()
 
-    #spectral camera
-    #sCal = CalibrateRGBImage(rgbOrder='RGGB')
-    sCal = CalibrateFilterImage()
-
-    sCamera = SCamera(name='sCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
-    sCamera.setParameter('calibrationData',sCal)
-    sCamera.setParameter('threadingNow',True)
-
+    camera = scs.camera
+    sCamera = scs.sCamera
 
     # virtual microscope
     vM = MultiSpectralMicroscope()

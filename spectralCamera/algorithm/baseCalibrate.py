@@ -18,7 +18,7 @@ class BaseCalibrate():
         else:
             self.wavelength = wavelength
 
-    def getSpectralImage(self,rawImage,**kargs):
+    def getSpectralImage(self,rawImage,**kwargs):
         ''' extend only into spectral dimension'''
         WYXImage = rawImage[None,...]
         return  WYXImage

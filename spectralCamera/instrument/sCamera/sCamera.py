@@ -19,9 +19,10 @@ class SCamera(BaseInstrument):
     ''' class to control spectral camera'''
     DEFAULT = {'name': 'sCamera'}
 
-    def __init__(self, name=DEFAULT['name'], **kwargs):
+    def __init__(self, name=None, **kwargs):
         ''' initialisation '''
 
+        if name== None: name= SCamera.DEFAULT['name']
         super().__init__(name=name, **kwargs)
         
         # bw camera

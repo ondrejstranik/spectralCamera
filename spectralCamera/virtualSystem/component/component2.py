@@ -53,8 +53,12 @@ class Component2():
     def disperseIntoLines(cls,iFrame:np.ndarray, gridVector = np.array([7,10])):
         ''' disperse it into a lines, imitate Integral field camera
         set of micro-lenses with slanted grating dispersion element
-        lines are dispersed horizontally '''
-        #TODO: correct value assignment
+        lines are dispersed horizontally 
+        return 
+            dispersed image
+            position vector of the pixel [0,0] 
+        '''
+
 
         gridVector = np.array(gridVector)
 
@@ -64,19 +68,18 @@ class Component2():
 
         xIdx, yIdx = np.meshgrid(np.arange(nX), np.arange(nY))
     
-        positionIdx = np.array([yIdx.ravel(),xIdx.ravel()])
+        positionIdx = np.array([yIdx.ravel(),xIdx.ravel()]).T
 
         gridVector2 = np.array([-gridVector[1],gridVector[0]])
-        positionYX = positionIdx[0][:,None]*gridVector2 + positionIdx[1][:,None]*gridVector
+        positionYX = positionIdx@np.vstack((gridVector2,gridVector))
         positionYX = positionYX - np.min(positionYX, axis=0)
 
         oFrame = np.zeros((np.max(positionYX[:,0])+1,np.max(positionYX[:,1])+nW+1))
 
         for ii in range(nW):
-            oFrame[positionYX[:,0],positionYX[:,1]+ii] = iFrame[ii,positionIdx[0],positionIdx[1]]
+            oFrame[positionYX[:,0],positionYX[:,1]+ii] = iFrame[ii,positionIdx[:,0],positionIdx[:,1]]
         
-        print(f'position {positionYX[0,:]}')
-        print(f'index {positionIdx[0,:]}')
+        #print(f'positionYX {positionYX.shape[0]}')
 
 
         return (oFrame, positionYX[0,:])

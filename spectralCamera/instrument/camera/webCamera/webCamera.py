@@ -19,16 +19,17 @@ class WebCamera(BaseCamera):
                 #'exposureTime': 10, # ms initially automatically set the exposure time
                 'nFrame': 1,
                 'cameraIdx': 0,
-                'filterType': 'RGGB'} # type of the filter 'RGB', 'RGGB','BW'
+                'filterType': 'RGGB'} # type of the filter 'RGB', 'RGGB'
 
-    def __init__(self, name=DEFAULT['name'],*args,**kwargs):
+    def __init__(self, name=None,*args,**kwargs):
         ''' initialisation '''
 
+        if name is None: name=WebCamera.DEFAULT['name'] 
         super().__init__(name=name,**kwargs)
         
         # camera parameters
         self.cameraIdx = kwargs['cameraIdx'] if 'cameraIdx' in kwargs else WebCamera.DEFAULT['cameraIdx']
-        self.filterType = kwargs['filterType'] if 'filterType' in kwargs else WebCamera.DEFAULT['filterType']
+        self.filterType = kwargs['rgbOrder'] if 'rgbOrder' in kwargs else WebCamera.DEFAULT['filterType']
 
         #self.exposureTime = WebCamera.DEFAULT['exposureTime']
         self.exposureTime = None

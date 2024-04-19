@@ -3,6 +3,7 @@ class to calibrate RGB Images
 '''
 
 import numpy as np
+from spectralCamera.algorithm.baseCalibrate import BaseCalibrate
 
 class CalibrateRGBImage(BaseCalibrate):
     ''' main class to calibrate rgb images '''

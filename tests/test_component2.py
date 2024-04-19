@@ -33,10 +33,13 @@ def test_disperseIntoLines():
     from spectralCamera.virtualSystem.component.component2 import Component2
     
     
-    spImage = np.random.rand(30,5,10) +1
-    oFrame =Component2.disperseIntoLines(spImage, gridVector=[4,10])
+    spImage = np.random.rand(40,10,10) +1
+    (oFrame, xy00) =Component2.disperseIntoLines(spImage, gridVector=np.array([7,10]))
 
     viewer = napari.view_image(oFrame)
+
+    print(f'spImage.shape {spImage.shape}')
+    print(f'xy00 {xy00}')
 
     napari.run()
 
