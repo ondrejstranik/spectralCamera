@@ -120,6 +120,7 @@ def test_multiSpectralMicroscope():
     # virtual microscope
     vM = MultiSpectralMicroscope()
     vM.setVirtualDevice(sCamera=sCamera, camera2=camera2)
+    vM.sample.setCalibrationImage()
     vM.connect()
 
     # main event loop

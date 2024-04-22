@@ -87,7 +87,7 @@ class VirtualIFCamera():
         self.camera.setParameter('threadingNow',True)
 
         #spectral camera
-        sCal = CalibrateIFImage(order= order)
+        sCal = CalibrateIFImage(camera=self.camera)
         self.sCamera = SCamera(name=sCameraName)
         self.sCamera.connect()
         self.sCamera.setParameter('camera',self.camera)
@@ -101,44 +101,4 @@ class VirtualIFCamera():
 #%%
 
 if __name__ == '__main__':
-    from viscope.instrument.virtual.virtualCamera import VirtualCamera
-    #from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualFilterCamera
-    from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualIFCamera
-
-    from viscope.main import Viscope
-    from spectralCamera.gui.xywViewerGUI import XYWViewerGui
-    from viscope.gui.allDeviceGUI import AllDeviceGUI
-
-    from spectralCamera.virtualSystem.multiSpectralMicroscope import MultiSpectralMicroscope
-    
-    #camera
-    camera2 = VirtualCamera(name='BWCamera')
-    camera2.connect()
-    camera2.setParameter('threadingNow',True)
-
-    #spectral camera system
-    #scs = VirtualFilterCamera()
-    scs = VirtualIFCamera()
-
-    camera = scs.camera
-    sCamera = scs.sCamera
-
-    # virtual microscope
-    vM = MultiSpectralMicroscope()
-    vM.setVirtualDevice(sCamera=sCamera, camera2=camera2)
-    vM.connect()
-
-    # main event loop
-    viscope = Viscope()
-    newGUI  = XYWViewerGui(viscope)
-    newGUI.setDevice(sCamera)
-
-    viewer  = AllDeviceGUI(viscope)
-    viewer.setDevice([camera,camera2])
-
-    viscope.run()
-
-    sCamera.disconnect()
-    camera.disconnect()
-    camera2.disconnect()
-    vM.disconnect()
+    pass

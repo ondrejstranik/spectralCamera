@@ -25,3 +25,21 @@ def test_calibrateFilterImage():
     mv.add_image(rawImage)
     mv.add_image(spImage)
     napari.run() 
+
+
+def test_calibrateIFImage():
+    ''' check  getSpectralImage method '''
+
+    from viscope.instrument.virtual.virtualCamera import VirtualCamera
+    from spectralCamera.algorithm.calibrateIFImage import CalibrateIFImage
+    
+    camera = VirtualCamera()
+    camera.connect()
+    camera.setParameter('threadingNow',True)
+
+    sCal = CalibrateIFImage(camera=camera)
+
+    rawImage = camera.getLastImage()
+    sCal.getSpectralImage(rawImage)
+
+    camera.disconnect() 

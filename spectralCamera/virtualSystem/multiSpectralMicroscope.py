@@ -85,18 +85,16 @@ class MultiSpectralMicroscope(BaseSystem):
 
         # disperse on integral field system
         if self.device['sCamera'].spectraCalibration.__class__.__name__== 'CalibrateIFImage':
-        # TODO: finish it code!
         
             sCal = self.device['sCamera'].spectraCalibration
             oFrame = np.zeros((iFrame.shape[0],*sCal.nYX))
             
             Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
-                            magnification=0.1,iPixelSize=self.sample.pixelSize,oPixelSize=self.sample.pixelSize)
+                            magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.sample.pixelSize)
 
             (oFrame, position00) = Component2.disperseIntoLines(oFrame, gridVector = sCal.gridVector)
         
-            iFramePosition = sCal.position00 - position00
-            #iFramePosition = np.array([0,0])  
+            iFramePosition = sCal.position00 - position00 
 
         # image it onto camera-chip
         # convenient way to crop not full super-pixel
@@ -121,7 +119,7 @@ class MultiSpectralMicroscope(BaseSystem):
 
         # image it onto camera-chip
         oFrame = Component.ideal4fImagingOnCamera(camera=self.device['camera2'],iFrame=iFrame,
-                                iFramePosition=np.array([0,0]),iPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'],
+                                iFramePosition=np.array([0,0]),iPixelSize=self.device['camera2'].DEFAULT['cameraPixelSize'],
                                 magnification=1)
 
 
