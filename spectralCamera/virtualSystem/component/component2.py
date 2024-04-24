@@ -103,7 +103,8 @@ class Component2():
         it is simple indexing of the original image '''
 
         spIndex = cls._SpectraToSpectraIdx(rangeIn,rangeOut)
-        return spImage[spIndex,:,:]
+        return spImage[spIndex,...]
+        #return spImage[spIndex,:,:]
 
 
 #%%
