@@ -82,6 +82,7 @@ class VirtualIFCamera():
         ''' initialisation '''
 
         #camera
+        
         self.camera = VirtualCamera(name=cameraName)
         self.camera.connect()
         self.camera.setParameter('threadingNow',True)
