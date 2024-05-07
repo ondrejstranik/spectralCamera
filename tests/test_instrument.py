@@ -36,7 +36,7 @@ def test_webCamera2():
 
 @pytest.mark.GUI
 def test_sCameraStatic():
-    ''' check if spectral camera give a proper image works'''
+    ''' check if spectral camera give a proper image'''
     from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
     from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera    
     from spectralCamera.instrument.sCamera.sCamera import SCamera
