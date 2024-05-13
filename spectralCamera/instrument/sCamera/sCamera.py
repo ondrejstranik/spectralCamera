@@ -1,5 +1,5 @@
 """
-Camera DeviceModel
+spectral camera - Data Processor 
 
 Created on Mon Nov 15 12:08:51 2021
 
@@ -10,12 +10,12 @@ Created on Mon Nov 15 12:08:51 2021
 import os
 import time
 import numpy as np
-from viscope.instrument.base.baseInstrument import BaseInstrument
+from viscope.instrument.base.baseProcessor import BaseProcessor
 from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
 from spectralCamera.algorithm.calibrateLoader import CalibrateLoader
 
 
-class SCamera(BaseInstrument):
+class SCamera(BaseProcessor):
     ''' class to control spectral camera'''
     DEFAULT = {'name': 'sCamera'}
 
@@ -41,7 +41,7 @@ class SCamera(BaseInstrument):
         ''' set the calibration class '''
 
         if spectraCalibration is None:
-            self.spectraCalibration = CalibrateRGBImage(rgbOrder='W')
+            self.spectraCalibration = CalibrateRGBImage()
         else:
             if spectraCalibration is str:
                 self.spectraCalibration = CalibrateLoader.load(spectraCalibration)
@@ -59,8 +59,17 @@ class SCamera(BaseInstrument):
         return self.spectraCalibration.getSpectralImage(imageData)
 
     def getLastSpectralImage(self):
+        ''' direct call of the camera image and spectral processing of it '''
         self.sImage = self.imageDataToSpectralCube(self.camera.getLastImage())
         return self.sImage
+
+    def connect(self,camera=None):
+        ''' connect data processor with the camera '''
+        if camera is not None:
+            super().connect(camera.flagLoop)
+            self.setParameter('camera',camera)
+        else:
+            super().connect()
 
     def setParameter(self,name, value):
         ''' set parameter of the spectral camera'''
@@ -71,6 +80,7 @@ class SCamera(BaseInstrument):
 
         if name== 'camera':
             self.camera = value
+            self.flagToProcess = self.camera.flagLoop
 
     def getParameter(self,name):
         ''' get parameter of the camera '''
@@ -86,38 +96,14 @@ class SCamera(BaseInstrument):
         if name== 'calibrationData':
             return self.spectraCalibration
 
-
-    def loop(self):
-        ''' infinite loop of the spectral camera thread '''
-        while True:
-            if self.camera.flagLoop.is_set():
-                self.sImage = self.imageDataToSpectralCube(self.camera.rawImage)
-                self.flagLoop.set()
-                self.camera.flagLoop.clear()
-                yield
-            time.sleep(0.03)
+    def processData(self):
+        ''' process newly arrived data '''
+        print('processing data')
+        self.sImage = self.imageDataToSpectralCube(self.camera.rawImage)
+        return self.sImage
 
 
 #%%
 
 if __name__ == '__main__':
-    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera    
-    import numpy as np
-    camera = WebCamera(name='WebCamera')
-    camera.connect()
-    camera.setParameter('threadingNow',True)
-
-    sCamera = SCamera(name='RGBWebCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
-    sCamera.setParameter('threadingNow',True)
-
-    for ii in range(5):
-        sCamera.flagLoop.wait()
-        print(f'worker loop reported: {ii+1} of 5')
-        print(f' spectral Image sum: {np.sum(sCamera.sImage)}')
-        sCamera.camera.flagLoop.clear()
-
-
-    camera.disconnect()
-    sCamera.disconnect()
+    pass

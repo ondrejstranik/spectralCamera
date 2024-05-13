@@ -48,8 +48,7 @@ def test_sCameraStatic():
     sCal = CalibrateRGBImage()
 
     sCamera = SCamera(name='spectralWebCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
+    sCamera.connect(camera=camera)
     sCamera.setParameter('calibrationData',sCal)
 
     im = sCamera.getLastSpectralImage()
@@ -70,8 +69,7 @@ def test_sCamera():
     camera.setParameter('threadingNow',True)
 
     sCamera = SCamera(name='RGBWebCamera')
-    sCamera.connect()
-    sCamera.setParameter('camera',camera)
+    sCamera.connect(camera)
     sCamera.setParameter('threadingNow',True)
 
     for ii in range(5):
