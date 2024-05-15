@@ -2,20 +2,8 @@
 class for live viewing spectral images
 '''
 #%%
-#import napari
-#from magicgui import magicgui
-#from typing import Annotated, Literal
-
-#from qtpy.QtWidgets import QLabel, QSizePolicy, QDockWidget
-#from qtpy.QtCore import Qt
 from viscope.gui.baseGUI import BaseGUI
 from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
-from timeit import default_timer as timer
-
-#from timeit import default_timer as timer
-#import napari
-
-#import numpy as np
 
 class XYWViewerGui(BaseGUI):
     ''' main class to show xywViewer'''
@@ -25,9 +13,6 @@ class XYWViewerGui(BaseGUI):
     def __init__(self, viscope, **kwargs):
         ''' initialise the class '''
         super().__init__(viscope, **kwargs)
-
-        self.lastUpdateTime = timer()
-        self.guiUpdateTime = 0.03
 
         # prepare the gui of the class
         XYWViewerGui.__setWidget(self) 
@@ -40,18 +25,10 @@ class XYWViewerGui(BaseGUI):
 
         self.vWindow.addMainGUI(self.viewer.window._qt_window, name=self.DEFAULT['nameGUI'])
 
-    def guiUpdateTimed(self):
-        ''' update gui according the update time '''
-        timeNow = timer()
-        if (timeNow -self.lastUpdateTime) > self.guiUpdateTime:
-            self.updateGui()
-            self.lastUpdateTime = timeNow    
-
     def setDevice(self,device):
         super().setDevice(device)
         # connect signals
         self.device.worker.yielded.connect(self.guiUpdateTimed)
-        self.vWindow.setWindowTitle(self.device.name)
 
     def updateGui(self):
         ''' update the data in gui '''
