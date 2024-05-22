@@ -98,7 +98,7 @@ class SCamera(BaseProcessor):
 
     def processData(self):
         ''' process newly arrived data '''
-        print(f"processing data from {self.DEFAULT['name']}")
+        #print(f"processing data from {self.DEFAULT['name']}")
         self.sImage = self.imageDataToSpectralCube(self.camera.rawImage)
         return self.sImage
 
