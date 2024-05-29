@@ -73,7 +73,7 @@ class XYWViewer():
 
   
         # set some parameters of napari
-        self.spectraLayer._keep_auto_contrast = True
+        #self.spectraLayer._keep_auto_contrast = True
         self.viewer.layers.selection.active = self.spectraLayer
 
         # add widget spectraGraph
