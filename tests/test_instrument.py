@@ -33,6 +33,25 @@ def test_webCamera2():
 
     camera.disconnect()
 
+@pytest.mark.GUI
+def test_milCamera():
+    ''' check if mil camera works with viscope gui '''
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+    from viscope.main import viscope
+    from spectralCamera.instrument.camera.milCamera.milCamera import MilCamera  
+
+    camera = MilCamera(name='MilCamera')
+    camera.connect()
+    camera.setParameter('threadingNow',True)
+
+    newGUI  = AllDeviceGUI(viscope)
+    newGUI.setDevice(camera)
+    viscope.run()
+
+    camera.disconnect()
+
+
+
 
 @pytest.mark.GUI
 def test_sCameraStatic():
@@ -80,3 +99,4 @@ def test_sCamera():
 
     camera.disconnect()
     sCamera.disconnect()
+# %%

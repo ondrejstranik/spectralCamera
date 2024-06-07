@@ -11,20 +11,16 @@ Created on Fri Aug 25 08:44:55 2023
 import mil as MIL
 import numpy as np
 import ctypes
-from datetime import date
-from os import path, mkdir
-from timeit import default_timer as timer
+#from os import path, mkdir
+#from timeit import default_timer as timer
 
 
 from viscope.instrument.base.baseCamera import BaseCamera
 
-from HSIplasmon.algorithm.calibrateFrom3Images import CalibrateFrom3Images
-import HSIplasmon as hsi
-import pickle
 
 class MilCamera(BaseCamera):
     ''' class to control camera over the mil frame grabber'''
-    DEFAULT = {'name': 'webCamera',
+    DEFAULT = {'name': 'milCamera',
                'exposureTime': 500, # ms initially automatically set the exposure time
                'nFrame': 1,
                'n_buffer_save': 2**3, # number of buffered images on the grabber card
@@ -112,7 +108,7 @@ class MilCamera(BaseCamera):
         for n in range(0, self.n_buffer_save):
             MIL.MbufFree(self.SaveBuffer[n])
     
-            MIL.MappFreeDefault(self.MilApplication, self.MilSystem, self.MilDisplay, self.MilDigitizer, MIL.M_NULL)
+        MIL.MappFreeDefault(self.MilApplication, self.MilSystem, self.MilDisplay, self.MilDigitizer, MIL.M_NULL)
         
    
     def getLastImageFromGrabber(self, n_buffer_save):
@@ -127,21 +123,20 @@ class MilCamera(BaseCamera):
 
         # make average image of the buffered images
         #print("Measurement finished. Accumulation buffers.")
-        MIL.MimArith(self.SaveBuffer[0], self.n_buffer_save, self.SaveBuffer[0], MIL.M_DIV_CONST);
+        MIL.MimArith(self.SaveBuffer[0], n_buffer_save, self.SaveBuffer[0], MIL.M_DIV_CONST);
         for i_buffer in range(1,n_buffer_save):
             #print("buffer ", i_buffer, " / ", self.n_buffer_save)
-            MIL.MimArith(self.SaveBuffer[i_buffer], self.n_buffer_save, self.SaveBuffer[i_buffer], MIL.M_DIV_CONST);
+            MIL.MimArith(self.SaveBuffer[i_buffer], n_buffer_save, self.SaveBuffer[i_buffer], MIL.M_DIV_CONST);
             MIL.MimArith(self.SaveBuffer[i_buffer], self.SaveBuffer[0], self.SaveBuffer[0], MIL.M_ADD);
 
         return MIL.MbufGet(self.SaveBuffer[0])
 
     def getLastImage(self):
-        # TODO: finish this class method
         nBuffer = self.nFrame//self.n_buffer_save
-
+        print(f'number of full buffers: {nBuffer}')
         myframe = None
-        for _ in range(nBuffer):
-            temporary_frame = None
+        for ii in range(nBuffer):
+            print(f'full buffer number: {ii}')
             _myframe = self.getLastImageFromGrabber(self.n_buffer_save)
             if myframe is None:
                 myframe = _myframe
@@ -149,46 +144,25 @@ class MilCamera(BaseCamera):
                 myframe += _myframe
 
         nLast = self.nFrame % self.n_buffer_save
+        myframeLast = 0
         if nLast !=0:
-            _myframe = self.getLastImageFromGrabber(self.n_buffer_save)
+            print(f'last not full buffer with number of images: {nLast}')
+            myframeLast = self.getLastImageFromGrabber(nLast)
         if myframe is None:
-            myframe = _myframe
+            self.rawImage = myframeLast
+        else:
+            self.rawImage = myframe*self.n_buffer_save/self.nFrame + myframeLast*nLast/self.nFrame
 
-
-
-        self.rawImage = myframe/self.nFrame
         return self.rawImage
 
 
 
-
-
-
-   
-    def setParameter(self,name, value):
-        ''' set parameter of the camera'''
-
-        if name== 'ExposureTime':
-            self.set_exposure_time(value)
-
-    def getParameter(self,name):
-        ''' get parameter of the camera '''
-
-        if name=='ExposureTime':
-            return self.ExposureTime
-
-
-
-
-
 if __name__ == "__main__":
-    cam = milCamera()
-    cam.prepareCamera()
-    cam.set_exposure_time(5000)
-    
-    cam.GetCalibrationData()
+    cam = MilCamera()
+    cam.connect()
+    cam._displayStreamOfImages()
 
-    cam.displayStreamOfImages()
+    cam.disconnect()
 
-    cam.free_alloc()
+
 
