@@ -3,20 +3,17 @@ class to warp the hyperspectral image
 '''
 # %% this comment line is code running in Jupiter notebook
 import numpy as np
-from skimage import data, filters, measure, morphology
-from skimage.filters import threshold_otsu, rank
-from skimage.transform import warp
-from scipy.interpolate import griddata
+#from skimage import data, filters, measure, morphology
+#from skimage.filters import threshold_otsu, rank
+#from skimage.transform import warp
+#from scipy.interpolate import griddata
 
-import HSIplasmon as hsi
-from HSIplasmon.algorithm.basisVectors import lattice_basis_vectors
-
-
-import napari
-
+from spectralCamera.algorithm.basisVectors import lattice_basis_vectors
 
 class GridSuperPixel():
     ''' main class to classify the grid of super-pixels in the image'''
+
+    DEFAULT = {'devMax': 0.2} # maximal divation of the vector grid from average. it is used index the grid
 
     def __init__(self):
         ''' initialise the class '''
@@ -27,17 +24,19 @@ class GridSuperPixel():
         self.xVec = None
         self.yVec = None
 
+        # bool value for the boxes inside the image
         self.inside = None
 
         # devMax ...maximal deviation of the pixel position from 
         # the latices vector in order to identify it 
-        self.devMax = 0.2 
+        self.devMax = self.DEFAULT['devMax']
 
     def setGridPosition(self, position):
         ''' set position of each spectral pixel
         '''
         self.position = position
-        self.inside = np.ones_like(self.position).astype(bool)
+        #self.inside = np.ones_like(self.position).astype(bool)
+        self.inside = np.ones_like(self.position, dtype=bool)
 
     def getGridInfo(self):
         ''' get the smallest lattice vectors and origin of the lattice'''
@@ -60,9 +59,12 @@ class GridSuperPixel():
 
     def shiftIdx00(self,new00Idx):
         ''' shift the position of origin of the lattice '''
-        self.imIdx = self.imIdx - new00idx
+        self.imIdx = self.imIdx - new00Idx
         # recalculate zero index
-        self.idx00 = np.arange(self.imIdx.shape[0])[(self.imIdx[:,0]==0) & (self.imIdx[:,1]==0)]
+        #self.idx00 = np.arange(self.imIdx.shape[0])[(self.imIdx[:,0]==0) & (self.imIdx[:,1]==0)][0]
+        self.idx00 = np.argmax((self.imIdx[:,0]==0) & (self.imIdx[:,1]==0))
+
+        self.xy00 = self.position[self.idx00,:]
 
     def getPixelIndex(self):
         ''' 
@@ -80,14 +82,13 @@ class GridSuperPixel():
         ii = 0
         while idxToCheck != []:
             if ii%10 == 0:
-                #print(idxToCheck)
                 print(f'Pixel indexing step {ii}')
             
             idxToCheckNew = []
 
             # check all position from the list idxToCheck
             for mi in idxToCheck:
-                # identify the flour closest neighbor
+                # identify the four closest neighbor
                 vecuXuY = np.array([[1.0,0.0],[-1.0,0.0],[0.0,1.0],[0.0,-1.0]])
                 for myVec in vecuXuY:
                     vecXY = self.position[mi,:] + myVec[0]*self.xVec + myVec[1]*self.yVec
@@ -113,7 +114,7 @@ class GridSuperPixel():
         self.inside = np.ones_like(self.position).astype(bool)
 
         # recalculate zero index
-        self.idx00 = np.arange(self.imIdx.shape[0])[(self.imIdx[:,0]==0) & (self.imIdx[:,1]==0)]
+        self.shiftIdx00(self,[0,0])        
 
     def getPositionInt(self):
         ''' get the grid position rounded on integer (full pixel) '''
@@ -130,12 +131,7 @@ class GridSuperPixel():
 
         self.inside = ~(outsideX | outsideY)
 
-        '''
-        self.imIdx = self.imIdx[inside,:]
-        self.position = self.position[inside,:]
-        # recalculate zero index
-        self.idx00 = np.arange(self.imIdx.shape[0])[(self.imIdx[:,0]==0) & (self.imIdx[:,1]==0)]
-        '''
+        return self.inside
 
     def getSpectraBlock(self, image, bheight=2, bwidth=30):
         ''' cut spectral pixel block out of the image
@@ -219,6 +215,7 @@ class GridSuperPixel():
 if __name__ == "__main__":
 
     import skimage as ski
+    import napari
 
     #example image
     myImage = ski.data.coins()

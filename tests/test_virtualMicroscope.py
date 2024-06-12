@@ -6,7 +6,7 @@ import pytest
 def test_simpleSpectralMicroscope():
     ''' check if virtual microscope works - show raw data'''
     from viscope.instrument.virtual.virtualCamera import VirtualCamera
-    from viscope.main import Viscope
+    from viscope.main import viscope
     from viscope.gui.allDeviceGUI import AllDeviceGUI
     from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
 
@@ -18,7 +18,6 @@ def test_simpleSpectralMicroscope():
     vM.setVirtualDevice(camera1)
     vM.connect()
 
-    viscope = Viscope()
     viewer  = AllDeviceGUI(viscope)
     viewer.setDevice([camera1])
     
@@ -31,7 +30,7 @@ def test_simpleSpectralMicroscope():
 def test_simpleSpectralMicroscope2():
     ''' check if virtual microscope works - show spectral and raw data'''
     #from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
-    from viscope.main import Viscope
+    from viscope.main import viscope
     from viscope.gui.allDeviceGUI import AllDeviceGUI
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
 
@@ -50,7 +49,6 @@ def test_simpleSpectralMicroscope2():
     vM.connect()
 
     # add gui
-    viscope = Viscope()
     viewer  = AllDeviceGUI(viscope)
     viewer.setDevice(camera)
     newGUI  = XYWViewerGui(viscope)

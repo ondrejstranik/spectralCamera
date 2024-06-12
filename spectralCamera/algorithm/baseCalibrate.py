@@ -1,8 +1,9 @@
 '''
 class to calibrate RGB Images
 '''
-
+from pathlib import Path
 import numpy as np
+import pickle
 
 class BaseCalibrate():
     ''' base class to calibrate BW image into spectral images'''
@@ -27,9 +28,38 @@ class BaseCalibrate():
         ''' get the RGB wavelengths '''
         return self.wavelength
 
+    def saveClass(self, classFileName= None, classFolder=None):
+        ''' save the class to a file '''
+        if classFileName is None: classFileName = self.__class__.__name__ + '.obj'
+
+        if classFolder is None: 
+            classFolder = Path.cwd()
+            
+        fullFile = classFolder + '/' + classFileName
+
+        file = open(fullFile, 'wb') 
+        pickle.dump(self, file)
+        file.close()    
+
+    def loadClass(self,classFile=None):
+        ''' load the class itself from file '''
+
+        # it is necessary in order to unpickle not only from global variable space
+        myVars = globals()
+        myVars.__setitem__(self.__class__.__name__,self.__class__)
+
+        if classFile is None:
+            fullFile = Path.cwd() + '/' + self.__class__.__name__ + '.obj'
+        else:
+            fullFile = str(classFile)
+
+        return pickle.load(open(fullFile, 'rb'))
+
+
 if __name__ == "__main__":
     pass
 
+#%%
 
 
 

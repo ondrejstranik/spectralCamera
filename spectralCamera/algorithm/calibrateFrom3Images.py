@@ -6,36 +6,43 @@ import numpy as np
 from skimage.transform import warp
 from scipy.interpolate import griddata
 
-from HSIplasmon.algorithm.imageMorph import ImageMorph
-import HSIplasmon as hsi
+from skimage.filters import threshold_otsu, median, gaussian
+from skimage.morphology import disk
+from skimage import measure
+
+import spectralCamera
 import pickle
 
-import napari
+from spectralCamera.algorithm.baseCalibrate import BaseCalibrate
+from spectralCamera.algorithm.gridSuperPixel import GridSuperPixel
 
+class CalibrateFrom3Images(BaseCalibrate):
+    ''' main class to calibrate IF camera from three single wavelength images '''
 
-class CalibrateFrom3Images():
-    ''' main class to calibrate optical and spectral aberration from three images '''
-
-    DEFAULT = {'imageNameStack':['filter_583nm', 'filter_500nm','filter_700nm'],
-               'wavelengthStack': [583,500,700],
-               'classFile': 'CalibrateFrom3Images',
+    DEFAULT = {'imageNameStack':['filter_600_1', 'filter_525_0','filter_700_0'],
+               'wavelengthStack': [600,525,700],
                'bwidth': 30,
-               'bheight': 2}
+               'bheight': 2,
+               'spectralRange': [450,720], # spectral range of the camera - determine the length of the spectral box
+                'cosmicRayThreshold': 1e6,
+               }
 
-
-    def __init__(self,imageNameStack=None, wavelengthStack=None):
+    def __init__(self,imageNameStack=None, wavelengthStack=None,**kwargs):
         ''' initialise the class 
         imageNameStack ... list of .npy files with the calibration images (names without .npy extension)
-                        TODO: add folder options (now files in folder hsi.dataFolder)
-        wavelengthStack ... list with '''
-        
+        wavelengthStack ... list with wavelength '''
+        super().__init__(**kwargs)
+
+
         self.imageNameStack = None
         self.wavelengthStack = None
-
+        self.imageStack = None
         self.imMoStack = []
 
         self.positionMatrixStack = None
         self.boolMatrixStack = None
+        self.positionMatrix = None
+        self.boolMatrix = None
 
         self.dSpectralWarpMatrix = None
         self.dSubpixelWarpMatrix = None
@@ -58,54 +65,100 @@ class CalibrateFrom3Images():
         else:
             self.wavelengthStack = np.array(wavelengthStack)
 
-    def processImageStack(self, save=True):
-        ''' process the single images and get their lattices
-        save == True ... save the process images in .obj files'''
+    def _getPeakPosition(self,image):
+        ''' get position of the spectral spots from the image
+            return the position of peaks and the average peak width
+        
+        '''
+       # smoothing
+        image = gaussian(image)
 
-        for imageName in self.imageNameStack:
-            myIm = np.load(hsi.dataFolder + '\\' + imageName + '.npy')
-            imMo = ImageMorph(myIm)
-            imMo.getPixelPosition()
-            imMo.getLatticeInfo()
+        # remove cosmic ray/over-saturated images
+        medianIm = median(image, disk(1))
+        cosmicRayMask = image> self.DEFAULT['cosmicRayThreshold']
+        image[cosmicRayMask] = medianIm[cosmicRayMask]
+
+       # smoothing
+        image = gaussian(image)
+
+        # identify the spectral spots
+        threshold = threshold_otsu(image)
+        mask = image > threshold
+
+        # calculate properties of objects and get the median size of the spots
+        labels = measure.label(mask)
+        component_sizes = np.bincount(labels.ravel())
+        myArea = np.median(component_sizes)
+
+        # remove too small and too large objects
+        thresholdFactor = 2
+        mySelection = np.logical_or((component_sizes < myArea/(1 +  thresholdFactor)),
+                                    (component_sizes > myArea*(1 + thresholdFactor)))
+        myMask = mySelection[labels]
+        mask[myMask] = 0
+
+        # calculate position of the spots
+        labels = measure.label(mask)
+        props = measure.regionprops_table(labels, image,
+                properties=['centroid','axis_minor_length'])
+
+        peakPosition = np.vstack((props['centroid-0'],props['centroid-1'])).T
+
+        # this is the width / spread of the peak along the y-axis 
+        # (it is independent on the width of the spectral filter)
+        peakWidth = np.mean(props['axis_minor_length'])
+
+        return (peakPosition, peakWidth)
+
+    def setImageStack(self,imageStack=None,wavelengthStack=None):
+        ''' set image stack with the corresponding wavelength
+        if not provided, the images are loaded from default files'''
+
+        if imageStack is not None:
+            self.imageStack = imageStack
+            self.wavelengthStack = wavelengthStack
+            return
+        else:
+            self.imageStack = []
+            for imageName in self.imageNameStack:
+                myIm = np.load(spectralCamera.dataFolder + '\\' + imageName + '.npy')
+                self.imageStack.append(myIm)
+
+ 
+    def processImageStack(self):
+        ''' process the single images and get their lattices '''
+
+        for myIm in self.imageStack:
+
+            (peakPosition, peakWidth) = self._getPeakPosition(myIm)
+
+            # get indexing of the peaks
+            imMo = GridSuperPixel()
+            imMo.setGridPosition(peakPosition)
+            imMo.getGridInfo()
             imMo.getPixelIndex()
-            #imMo.getIdealLattice(onPixel=False)
-            #imMo.setWarpMatrix()
-            file = open(hsi.dataFolder + '\\' + imageName + '.obj', 'wb') 
+           
+            self.imMoStack.append(imMo)
+       
+        self.bwidth = int(peakWidth//2)
+
+    def _saveGridStack(self):
+        ''' save grid stacks
+        this is only for debugging purposes'''
+
+        for ii,imMo in enumerate(self.imMoStack):
+            file = open(spectralCamera.dataFolder + '\\' + self.imageNameStack[ii] + '.obj', 'wb') 
             pickle.dump(imMo, file)
-            file.close()
+            file.close()            
 
-            self.imMoStack.append[imMo]
-
-    def loadGrids(self):
-        ''' load grids obtained from the imageStacks '''
+    def _loadGridStack(self):
+        ''' load grids obtained from the imageStacks
+         this is only for debugging purposes. it speed up the process '''
 
         self.imMoStack = []
 
         for imMoName in self.imageNameStack:
-            self.imMoStack.append(pickle.load(open(hsi.dataFolder + '\\' + imMoName + '.obj', 'rb')))
-
-    def saveClass(self, classFile=None):
-        ''' save the class to a file '''
-        if classFile is None:
-            classFile = self.DEFAULT['classFile']
-
-        file = open(hsi.dataFolder + '\\' + classFile + '.obj', 'wb') 
-        pickle.dump(self, file)
-        file.close()
-
-    def loadClass(self,classFile=None):
-        ''' load the class itself from file '''
-        # it is necessary in order to unpickle not only from __main__
-        # alternatively use a package dill
-        import __main__
-        __main__.CalibrateFrom3Images = CalibrateFrom3Images
-
-        if classFile is None:
-            classFile = self.DEFAULT['classFile']
-
-
-        return pickle.load(open(hsi.dataFolder + '\\' + classFile + '.obj', 'rb'))
-
+            self.imMoStack.append(pickle.load(open(spectralCamera.dataFolder + '\\' + imMoName + '.obj', 'rb')))
 
     def _setGlobalGridZero(self):
         ''' set [0,0] position in all grid in the same area. Grid Zeros centered around  first imageNameStack Grid
@@ -116,7 +169,7 @@ class CalibrateFrom3Images():
           
         '''
 
-        rangeIdxMax = 5
+        rangeIdxMax = 10
         distanceMax = 50
         
         imMo0 = self.imMoStack[0]
@@ -171,9 +224,31 @@ class CalibrateFrom3Images():
             positionMatrixStack.append(pointMatrix)
             boolMatrixStack.append(boolMatrix)
 
-        # define them in the class
+        # old style - use the variables positionMatrix, boolMatrix
         self.positionMatrixStack = positionMatrixStack
         self.boolMatrixStack = boolMatrixStack
+
+        
+        self.positionMatrix = np.array(self.positionMatrixStack)
+        _boolMatrix = np.array(self.boolMatrixStack)
+        self.boolMatrix = np.prod(_boolMatrix, axis=0).astype('bool')
+
+
+    def getPixelPositionWavelength(self):
+        ''' calculate average position on the spots for different wavelength'''
+
+        # calculate relative shift
+        vectorMatrixShift10 = self.positionMatrix[1,...] - self.positionMatrix[0,...]
+        vectorMatrixShift20 = self.positionMatrix[2,...] - self.positionMatrix[0,...]
+
+        # get the mean of the shift 
+        meanXShift10= np.mean(vectorMatrixShift10[1,self.boolMatrix])
+        meanXShift20= np.mean(vectorMatrixShift20[1,self.boolMatrix])
+
+        # vector for spectral to pixel calibration
+        self.pixelPositionWavelength = np.array([0, meanXShift10, meanXShift20 ])
+
+        return self.pixelPositionWavelength
 
     def prepareGrids(self):
         ''' prepare the grids from different calibration, so that warping can be calculated'''
@@ -324,14 +399,80 @@ class CalibrateFrom3Images():
 
 if __name__ == "__main__":
 
+#%%
+
+    import napari
+    import spectralCamera
+    import numpy as np
+    from spectralCamera.algorithm.calibrateFrom3Images import CalibrateFrom3Images
     # load reference image
-    rawImage = np.load(hsi.dataFolder + '\\' + 'white_light.npy')
+    whiteImage = np.load(spectralCamera.dataFolder + '\\' + 'filter_wo_0.npy')
 
     # initiate the calibration class
     myCal = CalibrateFrom3Images()
-    
-    
+
+    myCal.setImageStack()
+
     if False:
+        myCal.processImageStack()
+        #myCal._setGlobalGridZero()
+        myCal._saveGridStack()
+    else:
+        myCal._loadGridStack()
+
+
+    myCal._setGlobalGridZero()
+    #%% show the calibration images
+    viewer = napari.Viewer()
+    #viewer.add_image(myCal.mask)
+    viewer.add_image(whiteImage, name='white')
+
+    for ii,iS in enumerate(myCal.imageStack):
+        viewer.add_image(iS,name = myCal.wavelengthStack[ii], opacity=0.5)
+
+
+    # %% show selected points
+   
+    mask = np.zeros_like(myCal.imageStack[0])
+
+    for ii,imMo in enumerate(myCal.imMoStack):
+        selectPoint = (imMo.imIdx[:,0]%2 == 0 ) & (imMo.imIdx[:,1]%2 == 0 )
+
+        mask[imMo.position[selectPoint,0].astype(int),imMo.position[selectPoint,1].astype(int)] = ii+1
+
+    viewer.add_image(mask,name= 'position')
+
+    # %% show zero points
+    point00 = []
+    for ii,imMo in enumerate(myCal.imMoStack):
+        point00.append(imMo.xy00)
+        print(f'for {ii} the xy00 is {imMo.xy00}')
+    point00 = np.array(point00).T
+    viewer.add_points(point00.T, size= 50, opacity=0.2, name= 'zero position')
+
+    # %% show position Matrix
+
+    myCal._setPositionMatrix()
+
+    viewer = napari.Viewer()
+    viewer.add_image(np.array(myCal.positionMatrixStack), name='position Matrix')
+
+    #viewer.add_image(np.array(myCal.boolMatrixStack), name='position Matrix bool')
+
+
+
+    #%%
+
+
+    im525Mask = im525*0
+    im525Mask[pos525[:,0].astype(int),pos525[:,1].astype(int)] = 1
+    viewer.add_image(im525Mask)
+    viewer.add_image(im525, name='525')
+
+    #%%
+
+
+    if True:
         # calculate the calibration matrix
         myCal.loadGrids()
         myCal.prepareGrids()
