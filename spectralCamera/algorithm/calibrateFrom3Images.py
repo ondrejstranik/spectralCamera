@@ -3,6 +3,8 @@ class to calibrate HIS image from three narrow band images
 '''
 
 import numpy as np
+from copy import deepcopy
+
 from skimage.transform import warp
 from scipy.interpolate import griddata
 
@@ -38,6 +40,7 @@ class CalibrateFrom3Images(BaseCalibrate):
         self.wavelengthStack = None
         self.imageStack = None
         self.imMoStack = []
+        self.gridLine = None
 
         self.positionMatrixStack = None
         self.boolMatrixStack = None
@@ -52,9 +55,12 @@ class CalibrateFrom3Images(BaseCalibrate):
 
         self.pixelPositionWavelength = None
 
-        self.bwidth = self.DEFAULT['bwidth']
-        self.bheight = self.DEFAULT['bheight']
-        
+        #self.bwidth = self.DEFAULT['bwidth']
+        #self.bheight = self.DEFAULT['bheight']
+
+        self.bwidth = None
+        self.bheight = None
+
         if imageNameStack is None:
             self.imageNameStack = self.DEFAULT['imageNameStack']
         else:
@@ -144,7 +150,7 @@ class CalibrateFrom3Images(BaseCalibrate):
 
     def _saveGridStack(self):
         ''' save grid stacks
-        this is only for debugging purposes'''
+        this is only for debugging purposes. it speed up the process '''
 
         for ii,imMo in enumerate(self.imMoStack):
             file = open(spectralCamera.dataFolder + '\\' + self.imageNameStack[ii] + '.obj', 'wb') 
@@ -152,7 +158,7 @@ class CalibrateFrom3Images(BaseCalibrate):
             file.close()            
 
     def _loadGridStack(self):
-        ''' load grids obtained from the imageStacks
+        ''' load grids obtained from the imageNameStack
          this is only for debugging purposes. it speed up the process '''
 
         self.imMoStack = []
@@ -165,7 +171,7 @@ class CalibrateFrom3Images(BaseCalibrate):
         algorithm:
             find first rangeIdxMax**2 grid points around [0,0]
             the new [0,0] is the one which is aligned either right [shorter Wavelength] or left [longer Wavelength]
-            from the given [0,0] (first imageNameStack) and the maximal x-distance is distanceMax
+            from the given [0,0] (first imMoStack) and the maximal x-distance is distanceMax
           
         '''
 
@@ -249,6 +255,21 @@ class CalibrateFrom3Images(BaseCalibrate):
         self.pixelPositionWavelength = np.array([0, meanXShift10, meanXShift20 ])
 
         return self.pixelPositionWavelength
+
+
+    def setGridLine(self):
+        ''' set the global grid with for obtaining spectral blocks'''
+
+        # define the global gridSuperPixel 
+        self.gridLine = deepcopy(self.imMoStack[0])
+
+        wavelengthFit = np.poly1d(np.polyfit(self.pixelPositionWavelength,self.wavelengthStack, 2))
+        
+        
+        
+        return wavelengthFit(np.arange(2*self.bwidth+1)-self.bwidth)
+
+
 
     def prepareGrids(self):
         ''' prepare the grids from different calibration, so that warping can be calculated'''
