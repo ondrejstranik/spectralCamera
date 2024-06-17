@@ -17,12 +17,12 @@ class GridSuperPixel():
 
     def __init__(self):
         ''' initialise the class '''
-        self.position = None
-        self.imIdx = None
-        self.idx00 = None
-        self.xy00 = None
-        self.xVec = None
-        self.yVec = None
+        self.position = None # position of the spots - input array N x 2 (float)
+        self.imIdx = None # 2d index -(int,int) - of  the spots  
+        self.idx00 = None # position (int) of the index (0,0)
+        self.xy00 = None # position of the spots with index (0,0)
+        self.xVec = None # first vector of the grid
+        self.yVec = None # second vector of the grid
 
         # bool value for the boxes inside the image
         self.inside = None
@@ -35,8 +35,7 @@ class GridSuperPixel():
         ''' set position of each spectral pixel
         '''
         self.position = position
-        #self.inside = np.ones_like(self.position).astype(bool)
-        self.inside = np.ones_like(self.position, dtype=bool)
+        self.inside = np.ones_like(self.position[:,0], dtype=bool)
 
     def getGridInfo(self):
         ''' get the smallest lattice vectors and origin of the lattice'''
@@ -111,7 +110,7 @@ class GridSuperPixel():
         idxValue = idxValue[foundPointIdx]
         self.imIdx = idxValue.astype(int)
         self.position = self.position[foundPointIdx]
-        self.inside = np.ones_like(self.position).astype(bool)
+        self.inside = np.ones_like(self.position[:,0]).astype(bool)
 
         # recalculate zero index
         self.shiftIdx00(self,[0,0])        
@@ -150,6 +149,18 @@ class GridSuperPixel():
                 myPosition[self.inside,1]+ii-bwidth]
 
         return mySpec
+
+    def getSpectralBlockImage(self,image,bheight=2, bwidth=30):
+        ''' indicite the spectral blocks in the image '''
+
+        blockImage = np.zeros_like(image,dtype=bool)
+        myPosition = self.getPositionInt()
+        for ii in range(2*bwidth+1):
+            for jj in range(2*bheight+1):
+                blockImage[myPosition[self.inside,0]+jj-bheight,
+                myPosition[self.inside,1]+ii-bwidth] = True
+
+        return blockImage
 
     def getAlignedImage(self,mySpec):
         ''' get the overview image of the spectral block
