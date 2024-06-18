@@ -157,8 +157,8 @@ class GridSuperPixel():
         myPosition = self.getPositionInt()
         for ii in range(2*bwidth+1):
             for jj in range(2*bheight+1):
-                blockImage[myPosition[self.inside,0]+jj-bheight,
-                myPosition[self.inside,1]+ii-bwidth] = True
+                blockImage[(myPosition[self.inside,0]+jj-bheight).astype(int),
+                (myPosition[self.inside,1]+ii-bwidth).astype(int)] = True
 
         return blockImage
 
