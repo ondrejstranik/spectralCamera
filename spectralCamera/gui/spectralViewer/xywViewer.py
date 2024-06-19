@@ -119,21 +119,37 @@ class XYWViewer():
     def calculateSpectra(self):
         ''' calculate the spectra at the given points'''
         self.pointSpectra = []
-              
+
         # calculate pointSpectra
-        myPoints = self.pointLayer.data
-        for ii in np.arange(myPoints.shape[0]):
-            try:
-                temp = np.sum(
-                    self.spectraLayer.data[
-                    :,
-                    int(myPoints[ii,0])-self.pxAve:int(myPoints[ii,0])+self.pxAve+1,
-                    int(myPoints[ii,1])-self.pxAve:int(myPoints[ii,1])+self.pxAve+1
-                    ], axis = (1,2)) / (2*self.pxAve+1)**2
-                self.pointSpectra.append(temp)
-            except:
-                self.pointSpectra.append(0*self.wavelength)
-        
+        if self.spectraLayer.data.ndim ==3:
+            myPoints = self.pointLayer.data
+            for ii in np.arange(myPoints.shape[0]):
+                try:
+                    temp = np.sum(
+                        self.spectraLayer.data[
+                        :,
+                        int(myPoints[ii,0])-self.pxAve:int(myPoints[ii,0])+self.pxAve+1,
+                        int(myPoints[ii,1])-self.pxAve:int(myPoints[ii,1])+self.pxAve+1
+                        ], axis = (1,2)) / (2*self.pxAve+1)**2
+                    self.pointSpectra.append(temp)
+                except:
+                    self.pointSpectra.append(0*self.wavelength)
+
+        if self.spectraLayer.data.ndim ==4:
+            myPoints = self.pointLayer.data
+            for ii in np.arange(myPoints.shape[0]):
+                try:
+                    temp = np.sum(
+                        self.spectraLayer.data[int(self.viewer.dims.point[0]),
+                        :,
+                        int(myPoints[ii,0])-self.pxAve:int(myPoints[ii,0])+self.pxAve+1,
+                        int(myPoints[ii,1])-self.pxAve:int(myPoints[ii,1])+self.pxAve+1
+                        ], axis = (1,2)) / (2*self.pxAve+1)**2
+                    self.pointSpectra.append(temp)
+                except:
+                    self.pointSpectra.append(0*self.wavelength)
+
+
     def drawSpectraGraph(self):
         ''' draw all new lines in the spectraGraph '''
         # remove all lines
@@ -174,12 +190,24 @@ class XYWViewer():
 
     def calculateSpectraHistogram(self):
         ''' calculate histogram of given spectral channel '''
-        try:
-            (self.spectraHistogramValue, self.spectraHistogramBin) = np.histogram(
-                self.spectraLayer.data[int(self.viewer.dims.point[0]),:,:])
-        except:
-            self.spectraHistogramBin = np.arange(2)
-            self.spectraHistogramValue = 0*self.spectraHistogramBin[0:-1]
+
+        if self.spectraLayer.data.ndim ==3:
+            try:
+                (self.spectraHistogramValue, self.spectraHistogramBin) = np.histogram(
+                    self.spectraLayer.data[int(self.viewer.dims.point[0]),:,:])
+            except:
+                self.spectraHistogramBin = np.arange(2)
+                self.spectraHistogramValue = 0*self.spectraHistogramBin[0:-1]
+
+        if self.spectraLayer.data.ndim ==4:
+            try:
+                (self.spectraHistogramValue, self.spectraHistogramBin) = np.histogram(
+                    self.spectraLayer.data[int(self.viewer.dims.point[0]),
+                    int(self.viewer.dims.point[1]),:,:])
+            except:
+                self.spectraHistogramBin = np.arange(2)
+                self.spectraHistogramValue = 0*self.spectraHistogramBin[0:-1]
+
 
     def drawSpectraHistogram(self):
         ''' draw spectral histogram '''
@@ -200,11 +228,20 @@ class XYWViewer():
             print('error occurred in updateSpectraHistogram')
 
     def updateSpectraHistogramTitle(self):
-        try:
-            myw = self.wavelength[int(self.viewer.dims.point[0])]
-            self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
-        except:
-            print('error occurred in updateSpectraHistogramTitle')
+        ''' update spectra histogram title'''
+        if self.spectraLayer.data.ndim ==3:
+            try:
+                myw = self.wavelength[int(self.viewer.dims.point[0])]
+                self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
+            except:
+                print('error occurred in updateSpectraHistogramTitle')
+        if self.spectraLayer.data.ndim ==4:
+            try:
+                myw = self.wavelength[int(self.viewer.dims.point[1])]
+                self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
+            except:
+                print('error occurred in updateSpectraHistogramTitle')
+
 
     def updateHistogram(self):
         ''' update histogram values '''

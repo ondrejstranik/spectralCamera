@@ -138,8 +138,6 @@ sViewer = XYWViewer(np.stack((spImage,spWarpedImage)),myCal.wavelength)
 sViewer.run()
 
 
-
-
 # %%
 
 xx, yy = np.meshgrid(np.arange(whiteImage.shape[1]),

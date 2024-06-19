@@ -168,8 +168,8 @@ class CalibrateFrom3Images(BaseCalibrate):
             from the given [0,0] (first imMoStack) and the maximal x-distance is distanceMax
           
         '''
-
-        rangeIdxMax = 10
+        # internally defined parameters
+        rangeIdxMax = 10  
         distanceMax = 50
         
         imMo0 = self.imMoStack[0]
@@ -258,11 +258,6 @@ class CalibrateFrom3Images(BaseCalibrate):
         self.wavelength = wavelengthFit(np.arange(2*self.bwidth+1)-self.bwidth+xShift)
 
         # define the global gridSuperPixel 
-        '''
-        self.gridLine = deepcopy(self.imMoStack[0])
-        # correct the position  (x) of the gridline so that the middle of spectral block is in the middle of spectralRange
-        self.gridLine.position[:,1] = self.gridLine.position[:,1] + xShift
-        '''
         # set only where all three calibration peak were identified 
         self.gridLine = GridSuperPixel()
         self.gridLine.setGridPosition(self.positionMatrix[0,:,self.boolMatrix] + np.array([0,xShift]))
@@ -299,7 +294,7 @@ class CalibrateFrom3Images(BaseCalibrate):
 
         # prepare the all points and the relative shift vectors
         # the original grid points should be zero
-        points00 = self.imMoStack[0].position
+        points00 = self.positionMatrix[0,:,self.boolMatrix]
         vector00 = np.zeros_like(points00)
 
         points10 = self.positionMatrix[1,:,self.boolMatrix]
@@ -309,8 +304,15 @@ class CalibrateFrom3Images(BaseCalibrate):
         vector20 = vectorMatrixShift20[:,self.boolMatrix].T
 
         # put them all together
-        points = np.vstack((points00,points10,points20))
-        vector = np.vstack((vector00,vector10,vector20))
+        # set the points also on the bottom and top of the spectral range
+        sv = np.array([self.bheight,0])
+        points_M = np.vstack((points00,points10,points20))
+        points_T = np.vstack((points00,points10,points20)) + sv
+        points_D = np.vstack((points00,points10,points20)) - sv
+        points = np.vstack((points_M,points_T,points_D))
+        vector = np.vstack((vector00,vector10,vector20,
+                            vector00,vector10,vector20,
+                            vector00,vector10,vector20))
 
         # define the grid points
         xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
@@ -320,7 +322,12 @@ class CalibrateFrom3Images(BaseCalibrate):
         vy = griddata(points, vector[:,0], (yy, xx), method='cubic', fill_value= 0)
         vx = griddata(points, vector[:,1], (yy, xx), method='cubic', fill_value= 0)
 
-        self.dSpectralWarpMatrix = np.array([vy,vx])
+
+        # TODO: vy data are not good approximated. There is too strong
+        # variation of the values leading to intensity waves in the image
+        # therefore, the vy values are ignored
+        # self.dSpectralWarpMatrix = np.array([vy,vx])
+        self.dSpectralWarpMatrix = np.array([0*vy,vx])
 
     def _setSubpixelShiftMatrix(self):
         ''' calculate matrix to shift original spots on integer grids '''
@@ -334,8 +341,15 @@ class CalibrateFrom3Images(BaseCalibrate):
         vector_ = vectorMatrixSubpixelShift[:,self.boolMatrix].T
 
         # put them all together
-        points = np.vstack((points0,points1,points2))
-        vector = np.vstack((vector_,vector_,vector_))
+        # set the points also on the bottom and top of the spectral range
+        sv = np.array([self.bheight,0])
+        points_M = np.vstack((points0,points1,points2))
+        points_T = np.vstack((points0,points1,points2)) + sv
+        points_D = np.vstack((points0,points1,points2)) - sv
+        points = np.vstack((points_M,points_T,points_D))
+        vector = np.vstack((vector_,vector_,vector_,
+                            vector_,vector_,vector_,
+                            vector_,vector_,vector_))
 
         # define the grid points
         xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
@@ -345,7 +359,12 @@ class CalibrateFrom3Images(BaseCalibrate):
         vy = griddata(points, vector[:,0], (yy, xx), method='cubic', fill_value= 0)
         vx = griddata(points, vector[:,1], (yy, xx), method='cubic', fill_value= 0)
 
-        self.dSubpixelShiftMatrix = np.array([vy,vx])
+        # TODO: vy data are not good approximated. There is too strong
+        # variation of the values leading to strips in the image
+        # therefore, the vy values are ignored
+        # self.dSubpixelShiftMatrix = np.array([vy,vx])
+
+        self.dSubpixelShiftMatrix = np.array([0*vy,vx])
 
     def setWarpMatrix(self,spectral=True, subpixel=True):
         ''' set the final warping matrix
@@ -355,10 +374,9 @@ class CalibrateFrom3Images(BaseCalibrate):
         # necessary to calculate in order to get the wavelength calibration
 
         # define the grid points and warp matrix
-        if self.warpMatrix is None:
-            xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
-                                            np.arange(self.imageStack[0].shape[0]))
-            self.warpMatrix = np.array([yy,xx])
+        xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
+                                        np.arange(self.imageStack[0].shape[0]))
+        self.warpMatrix = np.array([yy,xx])
 
         if spectral:
             if self.dSpectralWarpMatrix is None: self._setSpectralWarpMatrix()
@@ -383,7 +401,7 @@ class CalibrateFrom3Images(BaseCalibrate):
         if bwidth is not None:
             self.bwidth = bwidth
 
-        return self.gridLine.getSpectraBlock(image,bheigth=self.bheight, bwidth=self.bwidth)
+        return self.gridLine.getSpectraBlock(image,bheight=self.bheight, bwidth=self.bwidth)
 
     def getSpectralBlockImage(self):
         ''' for visual check.

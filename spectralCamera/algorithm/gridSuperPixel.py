@@ -113,7 +113,7 @@ class GridSuperPixel():
         self.inside = np.ones_like(self.position[:,0]).astype(bool)
 
         # recalculate zero index
-        self.shiftIdx00(self,[0,0])        
+        self.shiftIdx00([0,0])        
 
     def getPositionInt(self):
         ''' get the grid position rounded on integer (full pixel) '''
