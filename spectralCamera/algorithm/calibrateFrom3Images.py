@@ -331,7 +331,7 @@ class CalibrateFrom3Images(BaseCalibrate):
 
     def _setSubpixelShiftMatrix(self):
         ''' calculate matrix to shift original spots on integer grids '''
-
+        '''
         # calculate relative shift
         vectorMatrixSubpixelShift = self.positionMatrix[0,...] - np.round(self.positionMatrix[0,...])
 
@@ -365,6 +365,22 @@ class CalibrateFrom3Images(BaseCalibrate):
         # self.dSubpixelShiftMatrix = np.array([vy,vx])
 
         self.dSubpixelShiftMatrix = np.array([0*vy,vx])
+        '''
+        # generate blocks with constant shift 
+        vx = np.zeros_like(self.imageStack[0])
+        vy = np.zeros_like(self.imageStack[0])
+
+        vectorSubpixelShift = self.gridLine.position - np.round(self.gridLine.position)
+        myPos = self.gridLine.getPositionInt()
+
+        for ii in range(2*self.bheight+1):
+            for jj in range(2*self.bwidth+1+2):
+                vx[(myPos[:,0]+ii-self.bheight).astype(int),
+                (myPos[:,1]+jj-self.bwidth-1).astype(int)] = vectorSubpixelShift[:,1]
+                vy[(myPos[:,0]+ii-self.bheight).astype(int),
+                (myPos[:,1]+jj-self.bwidth-1).astype(int)] = vectorSubpixelShift[:,0]
+
+        self.dSubpixelShiftMatrix = np.array([vy,vx])
 
     def setWarpMatrix(self,spectral=True, subpixel=True):
         ''' set the final warping matrix
