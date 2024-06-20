@@ -48,7 +48,7 @@ class CalibrateFrom3Images(BaseCalibrate):
         self.idxMatrixOffset = None
 
         self.dSpectralWarpMatrix = None
-        self.dSubpixelWarpMatrix = None
+        self.dSubpixelShiftMatrix = None
         self.warpMatrix = None
 
 
@@ -269,11 +269,12 @@ class CalibrateFrom3Images(BaseCalibrate):
         # indicate spectral block outside of the image
         self.gridLine.getPositionOutsideImage(self.imageStack[0],self.bheight,self.bwidth)
 
-
-    def prepareGrids(self):
+    def prepareGrid(self,spectralRange=None):
         ''' prepare the grids from different calibration, so that warping can be calculated'''
+        self.processImageStack()
         self._setGlobalGridZero()
         self._setPositionMatrix()
+        self.setGridLine(spectralRange=spectralRange)
 
     def _setSpectralWarpMatrix(self):
         ''' calculate the chromatic distortion matrix from vectors shifts
@@ -281,91 +282,46 @@ class CalibrateFrom3Images(BaseCalibrate):
         '''
 
         # calculate relative shift
-        vectorMatrixShift10 = self.positionMatrix[1,...] - self.positionMatrix[0,...]
-        vectorMatrixShift20 = self.positionMatrix[2,...] - self.positionMatrix[0,...]
+        vectorShift10 = (self.positionMatrix[1,:,self.boolMatrix] 
+                                - self.positionMatrix[0,:,self.boolMatrix])
+        vectorShift20 = (self.positionMatrix[2,:,self.boolMatrix] 
+                                - self.positionMatrix[0,:,self.boolMatrix])
 
         # get the mean of the shift 
-        meanXShift10= np.mean(vectorMatrixShift10[1,self.boolMatrix])
-        meanXShift20= np.mean(vectorMatrixShift20[1,self.boolMatrix])
+        meanShift10= np.mean(vectorShift10, axis=0)
+        meanShift20= np.mean(vectorShift20, axis=0)
 
-        # subtract the mean spectral (x) shifts
-        vectorMatrixShift10[1,...] -= meanXShift10
-        vectorMatrixShift20[1,...] -= meanXShift20
+        # deviation from the ideal position (y .. tilting, x ... stretching) for the two wavelength 
+        dVectorShift10 = vectorShift10 -  meanShift10
+        dVectorShift20 = vectorShift20 -  meanShift20
 
-        # prepare the all points and the relative shift vectors
-        # the original grid points should be zero
-        points00 = self.positionMatrix[0,:,self.boolMatrix]
-        vector00 = np.zeros_like(points00)
+        # pixel position for the two wavelength  
+        px1 = np.argmin(np.abs(self.wavelength - self.wavelengthStack[1]))
+        px2 = np.argmin(np.abs(self.wavelength - self.wavelengthStack[2]))
 
-        points10 = self.positionMatrix[1,:,self.boolMatrix]
-        vector10 = vectorMatrixShift10[:,self.boolMatrix].T
+        def linFit(px):
+            # linear fit of the deviation for given pixel in the blocks
+            slope = ((dVectorShift20 - dVectorShift10) / (px2 - px1) )
+            return  slope*(px - px1) + dVectorShift10
 
-        points20 = self.positionMatrix[2,:,self.boolMatrix]
-        vector20 = vectorMatrixShift20[:,self.boolMatrix].T
+        # populate the spectralWarp Matrix
+        vx = np.zeros_like(self.imageStack[0])
+        vy = np.zeros_like(self.imageStack[0])
+        myPos = self.gridLine.getPositionInt()
 
-        # put them all together
-        # set the points also on the bottom and top of the spectral range
-        sv = np.array([self.bheight,0])
-        points_M = np.vstack((points00,points10,points20))
-        points_T = np.vstack((points00,points10,points20)) + sv
-        points_D = np.vstack((points00,points10,points20)) - sv
-        points = np.vstack((points_M,points_T,points_D))
-        vector = np.vstack((vector00,vector10,vector20,
-                            vector00,vector10,vector20,
-                            vector00,vector10,vector20))
+        for ii in range(2*self.bheight+1):
+            for jj in range(2*self.bwidth+1):
+                vx[(myPos[:,0]+ii-self.bheight).astype(int),
+                (myPos[:,1]+jj-self.bwidth).astype(int)] = linFit(jj)[:,1]
+                vy[(myPos[:,0]+ii-self.bheight).astype(int),
+                (myPos[:,1]+jj-self.bwidth).astype(int)] = linFit(jj)[:,0]
 
-        # define the grid points
-        xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
-                             np.arange(self.imageStack[0].shape[0]))
+        self.dSpectralWarpMatrix = np.array([vy,vx])
 
-        # interpolate the shift on all pixel in the image
-        vy = griddata(points, vector[:,0], (yy, xx), method='cubic', fill_value= 0)
-        vx = griddata(points, vector[:,1], (yy, xx), method='cubic', fill_value= 0)
-
-
-        # TODO: vy data are not good approximated. There is too strong
-        # variation of the values leading to intensity waves in the image
-        # therefore, the vy values are ignored
-        # self.dSpectralWarpMatrix = np.array([vy,vx])
-        self.dSpectralWarpMatrix = np.array([0*vy,vx])
 
     def _setSubpixelShiftMatrix(self):
         ''' calculate matrix to shift original spots on integer grids '''
-        '''
-        # calculate relative shift
-        vectorMatrixSubpixelShift = self.positionMatrix[0,...] - np.round(self.positionMatrix[0,...])
 
-        points0 = self.positionMatrix[0,:,self.boolMatrix]
-        points1 = self.positionMatrix[1,:,self.boolMatrix]
-        points2 = self.positionMatrix[2,:,self.boolMatrix]
-        vector_ = vectorMatrixSubpixelShift[:,self.boolMatrix].T
-
-        # put them all together
-        # set the points also on the bottom and top of the spectral range
-        sv = np.array([self.bheight,0])
-        points_M = np.vstack((points0,points1,points2))
-        points_T = np.vstack((points0,points1,points2)) + sv
-        points_D = np.vstack((points0,points1,points2)) - sv
-        points = np.vstack((points_M,points_T,points_D))
-        vector = np.vstack((vector_,vector_,vector_,
-                            vector_,vector_,vector_,
-                            vector_,vector_,vector_))
-
-        # define the grid points
-        xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
-                             np.arange(self.imageStack[0].shape[0]))
-
-        # interpolate the shift on all pixel in the image
-        vy = griddata(points, vector[:,0], (yy, xx), method='cubic', fill_value= 0)
-        vx = griddata(points, vector[:,1], (yy, xx), method='cubic', fill_value= 0)
-
-        # TODO: vy data are not good approximated. There is too strong
-        # variation of the values leading to strips in the image
-        # therefore, the vy values are ignored
-        # self.dSubpixelShiftMatrix = np.array([vy,vx])
-
-        self.dSubpixelShiftMatrix = np.array([0*vy,vx])
-        '''
         # generate blocks with constant shift 
         vx = np.zeros_like(self.imageStack[0])
         vy = np.zeros_like(self.imageStack[0])
@@ -387,8 +343,6 @@ class CalibrateFrom3Images(BaseCalibrate):
         spectral == True ... correct for the bending of hte spectral lines
         subpixel == True ... shift the initial calibration wavelength spots on full pixels
         '''
-        # necessary to calculate in order to get the wavelength calibration
-
         # define the grid points and warp matrix
         xx, yy = np.meshgrid(np.arange(self.imageStack[0].shape[1]),
                                         np.arange(self.imageStack[0].shape[0]))
@@ -456,222 +410,5 @@ class CalibrateFrom3Images(BaseCalibrate):
 
 #%%
 
-
 if __name__ == "__main__":
-
-
-    import napari
-    import spectralCamera
-    import numpy as np
-    from spectralCamera.algorithm.calibrateFrom3Images import CalibrateFrom3Images
-    # load reference image
-    whiteImage = np.load(spectralCamera.dataFolder + '\\' + 'filter_wo_0.npy')
-
-    # initiate the calibration class
-    myCal = CalibrateFrom3Images()
-
-    myCal.setImageStack()
-
-    if False:
-        myCal.processImageStack()
-        #myCal._setGlobalGridZero()
-        myCal._saveGridStack()
-    else:
-        myCal._loadGridStack()
-
-
-    myCal._setGlobalGridZero()
-    #%% show the calibration images
-    viewer = napari.Viewer()
-    #viewer.add_image(myCal.mask)
-    viewer.add_image(whiteImage, name='white')
-
-    for ii,iS in enumerate(myCal.imageStack):
-        viewer.add_image(iS,name = myCal.wavelengthStack[ii], opacity=0.5)
-
-
-    # %% show selected points
-   
-    mask = np.zeros_like(myCal.imageStack[0])
-
-    for ii,imMo in enumerate(myCal.imMoStack):
-        selectPoint = (imMo.imIdx[:,0]%2 == 0 ) & (imMo.imIdx[:,1]%2 == 0 )
-
-        mask[imMo.position[selectPoint,0].astype(int),imMo.position[selectPoint,1].astype(int)] = ii+1
-
-    #viewer.add_image(mask,name= 'position',opacity=0.2)
-
-    viewer.add_labels(mask.astype(int), name='peaks')
-
-
-    # %% show zero points
-    point00 = []
-    for ii,imMo in enumerate(myCal.imMoStack):
-        point00.append(imMo.xy00)
-        print(f'for {ii} the xy00 is {imMo.xy00}')
-    point00 = np.array(point00).T
-    viewer.add_points(point00.T, size= 50, opacity=0.2, name= 'zero position')
-
-    # %% show position Matrix
-    myCal._setPositionMatrix()
-
-    '''
-    viewer2 = napari.Viewer()
-    viewer2.add_image(myCal.positionMatrix, name='position Matrix')
-
-    #viewer.add_image(np.array(myCal.boolMatrixStack), name='position Matrix bool')
-
-    '''
-    #%% indicate spectral block image
-
-    myCal.setGridLine()
-    blockImage = myCal.getSpectralBlockImage()
-
-    viewer.add_image(blockImage*1, name='blockImage',opacity=0.2)
-
-
-
-    #%% warping matrices
- 
-    myCal._setSubpixelShiftMatrix()
-    myCal._setSpectralWarpMatrix()
-
-    viewer2 = napari.Viewer()
-    viewer2.add_image(myCal.dSubpixelShiftMatrix, name='SubixelShift',opacity=0.2)
-    viewer2.add_image(myCal.dSpectralWarpMatrix, name='SubixelShift',opacity=0.2)
-    viewer2.add_labels(mask.astype(int), name='peaks')
-
-    #%% correction of the image - warping of the image
-    myCal.setWarpMatrix(spectral=True, subpixel=True)
-
-
-    for ii,iS in enumerate(myCal.imageStack):
-        viewer.add_image(myCal.getWarpedImage(iS),
-                         name = 'warped image', opacity=0.5)
-    
-
-
-
-    
-    #%%  show corrected image
-
-    viewer3 = napari.Viewer()
-    viewer3.add_image(whiteImage, name='white')
-    viewer3.add_image(myCal.getWarpedImage(whiteImage), name='warped white')
-
-
-
-
-
-
-    '''
-    im525Mask = im525*0
-    im525Mask[pos525[:,0].astype(int),pos525[:,1].astype(int)] = 1
-    viewer.add_image(im525Mask)
-    viewer.add_image(im525, name='525')
-
-    #%%
-
-
-    if True:
-        # calculate the calibration matrix
-        myCal.loadGrids()
-        myCal.prepareGrids()
-        myCal.setWarpMatrix(spectral=True, subpixel=True)
-        myCal.saveClass()
-    else:
-        # load already calculated calibration matrix
-        myCal = myCal.loadClass()
-
-    # spec subpixel warped image
-    warpedImageSpecSub = myCal.getWarpedImage(rawImage)
-    # spec warped image
-    myCal.warpMatrix = np.array([myCal.yy,myCal.xx]) + myCal.dSpectralWarpMatrix
-    warpedImageSpec = myCal.getWarpedImage(rawImage)
-    # subpixel warped image
-    myCal.warpMatrix = np.array([myCal.yy,myCal.xx]) + myCal.dSubpixelShiftMatrix
-    warpedImageSub = myCal.getWarpedImage(rawImage)
-
-    # show the warping matrices
-    viewer = napari.Viewer()
-    viewer.add_image(myCal.dSpectralWarpMatrix[1,...], opacity= 0.5, name= 'dSpectralWarpMatrix_x')
-    viewer.add_image(myCal.dSpectralWarpMatrix[0,...], opacity= 0.5, name= 'dSpectralWarpMatrix_y')
-    viewer.add_image(myCal.dSubpixelShiftMatrix[1,...], opacity= 0.5, name= 'dSubPixelShiftMatrix_x')
-    viewer.add_image(myCal.dSubpixelShiftMatrix[0,...], opacity= 0.5, name= 'dSubPixelShiftMatrix_y')
-
-    # show the warped images
-    viewer = napari.Viewer()
-    viewer.add_image(rawImage, opacity=0.5, name= 'raw')
-    viewer.add_image(warpedImageSpecSub, opacity= 0.5, name= 'both')
-    viewer.add_image(warpedImageSpec, opacity= 0.5, name='spec')
-    viewer.add_image(warpedImageSub, opacity= 0.5, name= 'subPixel')
-
-    # calculate block-aligned and 3D images
-    mySpec = myCal.getSpectraBlock(rawImage)
-    rawAlignedImage = myCal.getAlignedImage(mySpec)
-    raw3DImage = myCal.getWYXImage(mySpec)
-
-    mySpec = myCal.getSpectraBlock(warpedImageSpecSub)
-    warpedAlignedImageSpecSub = myCal.getAlignedImage(mySpec)
-    warped3DImageSpecSub = myCal.getWYXImage(mySpec)
-
-    mySpec = myCal.getSpectraBlock(warpedImageSpec)
-    warpedAlignedImageSpec = myCal.getAlignedImage(mySpec)
-    warped3DImageSpec = myCal.getWYXImage(mySpec)
-
-    mySpec = myCal.getSpectraBlock(warpedImageSub)
-    warpedAlignedImageSub = myCal.getAlignedImage(mySpec)
-    warped3DImageSub = myCal.getWYXImage(mySpec)
-
-    # show block-aligned and 3D images
-
-    viewer2 = napari.Viewer()
-    viewer2.add_image(rawAlignedImage, opacity= 0.5)
-    viewer2.add_image(warpedAlignedImageSpecSub, opacity= 0.5)
-    viewer2.add_image(warpedAlignedImageSpec, opacity= 0.5)
-    viewer2.add_image(warpedAlignedImageSub, opacity= 0.5)
-
-    viewer3 = napari.Viewer()
-    viewer3.add_image(raw3DImage, opacity= 0.5)
-    viewer3.add_image(warped3DImageSpecSub, opacity= 0.5)
-    viewer3.add_image(warped3DImageSpec, opacity= 0.5)
-    viewer3.add_image(warped3DImageSub, opacity= 0.5)
-
-    # show the calibrated spectral image in spectral viewer
-    from HSIplasmon.SpectraViewerModel2 import SpectraViewerModel2
-    wavelength = myCal.getWavelength()
-    sViewer = SpectraViewerModel2(warped3DImageSpecSub, wavelength)
-
-
-
-
-
-    '''
-
-
-    napari.run()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    pass
