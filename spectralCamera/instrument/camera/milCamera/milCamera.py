@@ -21,7 +21,7 @@ from viscope.instrument.base.baseCamera import BaseCamera
 class MilCamera(BaseCamera):
     ''' class to control camera over the mil frame grabber'''
     DEFAULT = {'name': 'milCamera',
-               'exposureTime': 500, # ms initially automatically set the exposure time
+               'exposureTime': 100, # ms initially automatically set the exposure time
                'nFrame': 1,
                'n_buffer_save': 2**3, # number of buffered images on the grabber card
     }
@@ -42,9 +42,9 @@ class MilCamera(BaseCamera):
         self.SaveBuffer = []
 
         ## Standard, don't change
-        self.ExposureTime_0 = 999850;
-        self.AcquisitionFrameRate_0 = 1;
-        self.AcquisitionFramePeriod_0 = 1000000;
+        self.ExposureTime_0 = 999850
+        self.AcquisitionFrameRate_0 = 1
+        self.AcquisitionFramePeriod_0 = 100
 
         #### Measurement parameters
         self.n_buffer_save = MilCamera.DEFAULT['n_buffer_save']
@@ -88,13 +88,14 @@ class MilCamera(BaseCamera):
        
         ## just change exposure time
         self.exposureTime = value #5000;#999850;
+        exposureTime_um = 1000* self.exposureTime
         #self.AcquisitionFrameRate = MIL.MIL_INT(int(self.n_buffer_save*np.floor(self.AcquisitionFrameRate_0 * self.ExposureTime_0 /self.ExposureTime) ));
         #self.AcquisitionFramePeriod = MIL.MIL_INT(int((1/self.n_buffer_save)* np.ceil(self.AcquisitionFramePeriod_0 * self.ExposureTime / self.ExposureTime_0) ));
         
-        self.AcquisitionFrameRate = MIL.MIL_INT(int(np.floor(self.AcquisitionFrameRate_0 * self.ExposureTime_0 /self.exposureTime) ));
-        self.AcquisitionFramePeriod = MIL.MIL_INT(int( np.ceil(self.AcquisitionFramePeriod_0 * self.exposureTime / self.ExposureTime_0) ));
+        self.AcquisitionFrameRate = MIL.MIL_INT(int(np.floor(self.AcquisitionFrameRate_0 * self.ExposureTime_0 /exposureTime_um) ))
+        self.AcquisitionFramePeriod = MIL.MIL_INT(int( np.ceil(self.AcquisitionFramePeriod_0 * exposureTime_um / self.ExposureTime_0) ))
         
-        _ExposureTime = MIL.MIL_INT(self.exposureTime);
+        _ExposureTime = MIL.MIL_INT(exposureTime_um)
         
         # Put the digitizer in asynchronous mode to be able to process while grabbing.
         MIL.MdigControl(self.MilDigitizer, MIL.M_GRAB_MODE, MIL.M_ASYNCHRONOUS)
