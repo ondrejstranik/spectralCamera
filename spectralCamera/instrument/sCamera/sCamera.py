@@ -17,7 +17,8 @@ from spectralCamera.algorithm.calibrateLoader import CalibrateLoader
 
 class SCamera(BaseProcessor):
     ''' class to control spectral camera'''
-    DEFAULT = {'name': 'sCamera'}
+    DEFAULT = {'name': 'sCamera',
+               'aberrationCorrection': False}
 
     def __init__(self, name=None, **kwargs):
         ''' initialisation '''
@@ -32,6 +33,7 @@ class SCamera(BaseProcessor):
         # spectralCamera parameters
         self.sImage = None
         self.wavelength = None
+        self.aberrationCorrection = SCamera.DEFAULT['aberrationCorrection']
 
         # get default calibration data
         self.setCalibrationData()
@@ -56,7 +58,8 @@ class SCamera(BaseProcessor):
     def imageDataToSpectralCube(self,imageData):
         ''' convert image to hyper spectral cube'''
         
-        return self.spectraCalibration.getSpectralImage(imageData)
+        return self.spectraCalibration.getSpectralImage(imageData,
+                aberrationCorrection = self.aberrationCorrection)
 
     def getLastSpectralImage(self):
         ''' direct call of the camera image and spectral processing of it '''

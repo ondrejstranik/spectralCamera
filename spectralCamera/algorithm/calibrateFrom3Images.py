@@ -23,7 +23,7 @@ class CalibrateFrom3Images(BaseCalibrate):
     ''' main class to calibrate IF camera from three single wavelength images '''
 
     DEFAULT = {'imageNameStack':['filter_600_1', 'filter_525_0','filter_700_0'],
-               'wavelengthStack': [600,525,700],
+               'wavelengthStack': [602,534,705],
                'bheight': 2,
                'spectralRange': [525,700], # spectral range of the camera - determine the length of the spectral box
                 'cosmicRayThreshold': 1e6,

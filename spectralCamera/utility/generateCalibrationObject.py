@@ -49,9 +49,10 @@ while answer != "y":
     if answer != "y":
         range1 = int(input(f"{spectralRange[0]} --> : "))
         range2 = int(input(f"{spectralRange[1]} --> : "))
-        myCal.setGridLine([range1,range2])
+        spectralRange = [range1,range2]
+        myCal.setGridLine(spectralRange)
         blockImage = myCal.getSpectralBlockImage()
-        blockImageLayer.date = blockImage*1
+        blockImageLayer.data = blockImage*1
 
 
 # calibration images
