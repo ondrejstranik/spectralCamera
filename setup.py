@@ -18,7 +18,9 @@ setuptools.setup(
         'PyQt5',
         'napari',
         'opencv-python',
-        'pyqtgraph'],
+        'pyqtgraph',
+        'scikit-learn',
+        ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

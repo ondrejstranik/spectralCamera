@@ -11,35 +11,48 @@ from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
 
 dfolder = spectralCamera.dataFolder
 whiteFileName = 'filter_wo_0.npy'
-imageNameStack = None
-wavelengthStack = None
-
+imageNameStack = None # default
+wavelengthStack = None # default
+spectralRange = [470, 770]
 
 #%% data loading
 print('loading data')
 # load reference image
 whiteImage = np.load(dfolder + '\\' + whiteFileName)
 
-myCal = CalibrateFrom3Images()
-
-if imageNameStack is not None: myCal.imageNameStack = imageNameStack
-if wavelengthStack is not None: myCal.wavelengthStack = wavelengthStack
-
-
 # initiate the calibration class
-myCal = CalibrateFrom3Images()
+myCal = CalibrateFrom3Images(imageNameStack=imageNameStack,
+                             wavelengthStack=wavelengthStack)
+
 # load images
 myCal.setImageStack()
 
 #%% process calibration images
 print('processing the reference images - getting the grid')
-myCal.prepareGrid([450,720])
+myCal.prepareGrid(spectralRange)
 
 #%% visual check that grids are on proper position
+print('visual check of grid and block position')
+
+viewer = napari.Viewer()
 
 # white image
-viewer = napari.Viewer()
 viewer.add_image(whiteImage, name='white' )
+
+# show spectral block
+blockImage = myCal.getSpectralBlockImage()
+blockImageLayer = viewer.add_image(blockImage*1, name='spectral block',opacity=0.2)
+
+answer = ""
+while answer != "y":
+    answer = input(f" is spectral range {spectralRange} good [Y/N]  ").lower()
+    if answer != "y":
+        range1 = int(input(f"{spectralRange[0]} --> : "))
+        range2 = int(input(f"{spectralRange[1]} --> : "))
+        myCal.setGridLine([range1,range2])
+        blockImage = myCal.getSpectralBlockImage()
+        blockImageLayer.date = blockImage*1
+
 
 # calibration images
 iS = myCal.imageStack[0] + myCal.imageStack[1] + myCal.imageStack[2]
@@ -58,9 +71,6 @@ for ii,imMo in enumerate(myCal.imMoStack):
     point00.append(imMo.xy00)
 viewer.add_points(np.array(point00), size= 50, opacity=0.2, name= 'zero position')
 
-# show spectral block
-blockImage = myCal.getSpectralBlockImage()
-viewer.add_image(blockImage*1, name='spectral block',opacity=0.2)
 
 #%% calculate the calibration warping matrices
 print('calculating the calibration -warp - matrix')
@@ -68,6 +78,7 @@ print('calculating the calibration -warp - matrix')
 myCal.setWarpMatrix(spectral=True, subpixel=True)
 
 #%% visual check of the warping matrices
+print('visual check of the calibration routine')
 
 # located spectral peaks in the calibration images
 label = np.zeros_like(myCal.imageStack[0], dtype='int')
@@ -106,7 +117,7 @@ viewer3.add_image(spImage2, name = 'peak not cor', opacity=1,colormap='turbo')
 viewer3.add_image(spImage2Cor, name = 'peak cor', opacity=1,colormap='turbo')
 
 #%%
-napari.run()
+#napari.run()
 
 
 #%% show hyper spectral image
@@ -116,5 +127,6 @@ sViewer.run()
 
 
 #%% save class
-
-myCal.saveClass(classFolder=dfolder)
+if input("Save the calibration [Y/N]? ").lower()=='y':
+    print(f'calibration will be saved in folder: {dfolder}')
+    myCal.saveClass(classFolder=dfolder)

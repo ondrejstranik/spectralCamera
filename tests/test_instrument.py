@@ -50,6 +50,35 @@ def test_milCamera():
 
     camera.disconnect()
 
+def test_milCamera2():
+    ''' check if mil camera works with viscope gui '''
+    import spectralCamera
+    from spectralCamera.instrument.camera.milCamera.milCamera import MilCamera  
+    from spectralCamera.algorithm.calibrateFrom3Images import CalibrateFrom3Images
+    from spectralCamera.instrument.sCamera.sCamera import SCamera
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+    from viscope.main import viscope
+
+    camera = MilCamera(name='MilCamera')
+    camera.connect()
+    camera.setParameter('threadingNow',True)
+
+    sCal = CalibrateFrom3Images()
+    sCal = sCal.loadClass()
+
+    sCamera = SCamera(name='spectralWebCamera')
+    sCamera.connect(camera=camera)
+    sCamera.setParameter('calibrationData',sCal)
+
+
+
+    newGUI  = AllDeviceGUI(viscope)
+    newGUI.setDevice(camera)
+    viscope.run()
+
+    camera.disconnect()
+
+
 
 
 

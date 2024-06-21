@@ -4,6 +4,7 @@ class to calibrate RGB Images
 from pathlib import Path
 import numpy as np
 import pickle
+import spectralCamera
 
 class BaseCalibrate():
     ''' base class to calibrate BW image into spectral images'''
@@ -33,7 +34,7 @@ class BaseCalibrate():
         if classFileName is None: classFileName = self.__class__.__name__ + '.obj'
 
         if classFolder is None: 
-            classFolder = Path.cwd()
+            classFolder = spectralCamera.dataFolder
             
         fullFile = classFolder + '/' + classFileName
 
@@ -49,11 +50,13 @@ class BaseCalibrate():
         myVars.__setitem__(self.__class__.__name__,self.__class__)
 
         if classFile is None:
-            fullFile = Path.cwd() + '/' + self.__class__.__name__ + '.obj'
+            fullFile = spectralCamera.dataFolder + '/' + self.__class__.__name__ + '.obj'
         else:
             fullFile = str(classFile)
 
-        return pickle.load(open(fullFile, 'rb'))
+        self = pickle.load(open(fullFile, 'rb'))
+
+        return self
 
 
 if __name__ == "__main__":

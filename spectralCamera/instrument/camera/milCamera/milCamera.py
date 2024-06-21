@@ -21,7 +21,7 @@ from viscope.instrument.base.baseCamera import BaseCamera
 class MilCamera(BaseCamera):
     ''' class to control camera over the mil frame grabber'''
     DEFAULT = {'name': 'milCamera',
-               'exposureTime': 100, # ms initially automatically set the exposure time
+               'exposureTime': 10, # ms initially automatically set the exposure time
                'nFrame': 1,
                'n_buffer_save': 2**3, # number of buffered images on the grabber card
     }
@@ -57,6 +57,8 @@ class MilCamera(BaseCamera):
     def connect(self):
         super().connect()
         self.prepareCamera()
+
+        self.setParameter('exposureTime',self.exposureTime)
 
     def prepareCamera(self):
         ''' prepare camera and make initial setting '''
@@ -140,9 +142,9 @@ class MilCamera(BaseCamera):
             print(f'full buffer number: {ii}')
             _myframe = self.getLastImageFromGrabber(self.n_buffer_save)
             if myframe is None:
-                myframe = _myframe
+                myframe = _myframe.astype(float)
             else:
-                myframe += _myframe
+                myframe = myframe + _myframe
 
         nLast = self.nFrame % self.n_buffer_save
         myframeLast = 0
@@ -150,7 +152,7 @@ class MilCamera(BaseCamera):
             print(f'last not full buffer with number of images: {nLast}')
             myframeLast = self.getLastImageFromGrabber(nLast)
         if myframe is None:
-            self.rawImage = myframeLast
+            self.rawImage = myframeLast.astype(float)
         else:
             self.rawImage = myframe*self.n_buffer_save/self.nFrame + myframeLast*nLast/self.nFrame
 
@@ -167,3 +169,5 @@ if __name__ == "__main__":
 
 
 
+
+# %%
