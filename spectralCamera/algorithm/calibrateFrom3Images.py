@@ -1,5 +1,5 @@
 '''
-class to calibrate HIS image from three narrow band images
+class to calibrate HIS image from three narrow band images 
 '''
 
 #%%
@@ -7,15 +7,11 @@ import numpy as np
 from copy import deepcopy
 
 from skimage.transform import warp
-from scipy.interpolate import griddata
 from scipy.optimize import curve_fit
 
 from skimage.filters import threshold_otsu, median, gaussian
 from skimage.morphology import disk
 from skimage import measure
-
-
-
 
 import spectralCamera
 import pickle
@@ -74,8 +70,6 @@ class CalibrateFrom3Images(BaseCalibrate):
             return the position of peaks and the average peak width
         
         '''
-       # smoothing
-        image = gaussian(image)
 
         # remove cosmic ray/over-saturated images
         medianIm = median(image, disk(1))
@@ -353,7 +347,7 @@ class CalibrateFrom3Images(BaseCalibrate):
 
     def setWarpMatrix(self,spectral=True, subpixel=True):
         ''' set the final warping matrix
-        spectral == True ... correct for the bending of hte spectral lines
+        spectral == True ... correct for the bending of the spectral lines
         subpixel == True ... shift the initial calibration wavelength spots on full pixels
         '''
         # define the grid points and warp matrix
