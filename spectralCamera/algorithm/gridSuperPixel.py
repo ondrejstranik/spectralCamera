@@ -151,7 +151,7 @@ class GridSuperPixel():
         return mySpec
 
     def getSpectralBlockImage(self,image,bheight=2, bwidth=30):
-        ''' indicite the spectral blocks in the image '''
+        ''' indicate the spectral blocks in the image '''
 
         blockImage = np.zeros_like(image,dtype=bool)
         myPosition = self.getPositionInt()
@@ -198,10 +198,19 @@ class GridSuperPixel():
 
         return ooIm
 
-    def getWYXImage(self,mySpec):
+    def getWYXImage(self,mySpec, weighting=True):
         ''' use plain averaging along the y axis to get spectral image '''
 
-        btheigth = mySpec.shape[1]
+        def _weight(s):
+            ''' weighting along the y-axis (vertical) of the spectral blocks'''
+            return np.exp(-np.arange(-s,s+1)**2/s**2)
+
+        bheigth = mySpec.shape[1]//2
+        if weighting:
+            weight = _weight(bheigth)
+        else:
+            weight = np.ones(2*bheigth+1)
+
         btwidth = mySpec.shape[2]
 
         # shift the indexing to positive values
@@ -212,7 +221,7 @@ class GridSuperPixel():
         wyxImageShape = (btwidth,imIdx[:,0].max()+1,imIdx[:,1].max()+1)        
 
         # averaging according the y-axis
-        mySpecAve = np.mean(mySpec,axis=1)
+        mySpecAve = np.average(mySpec,weights=weight,axis=1)
 
         # generate the (lambda y x) image
         wyxImage = np.zeros(wyxImageShape)

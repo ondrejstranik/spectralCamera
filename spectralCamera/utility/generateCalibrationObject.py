@@ -8,12 +8,21 @@ import numpy as np
 from spectralCamera.algorithm.calibrateFrom3Images import CalibrateFrom3Images
 from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
 
+import matplotlib.pyplot as plt
+# set backend in the case of ipython
+try:
+    from IPython import get_ipython
+    ipython = get_ipython()
+    ipython.run_line_magic("matplotlib","")
+except:
+    pass
+
 
 dfolder = spectralCamera.dataFolder
 whiteFileName = 'filter_wo_0.npy'
 imageNameStack = None # default
 wavelengthStack = None # default
-spectralRange = [470, 770]
+spectralRange = [505, 750]
 
 #%% data loading
 print('loading data')
@@ -28,10 +37,36 @@ myCal = CalibrateFrom3Images(imageNameStack=imageNameStack,
 myCal.setImageStack()
 
 #%% process calibration images
-print('processing the reference images - getting the grid')
-myCal.prepareGrid(spectralRange)
+if False:
+    print('processing the reference images - getting the grid')
+    myCal.prepareGrid(spectralRange)
+else:
+    print('loading the grid')
+    myCal._loadGridStack()
+    myCal._setPositionMatrix()
+    myCal.setGridLine(spectralRange=spectralRange)
+    myCal.bheight = 3
+
 
 #%% visual check that grids are on proper position
+
+fig, ax = plt.subplots()
+ax.plot(myCal.wavelength)
+
+ax.set(xlabel='pixels', ylabel='wavelength [nm]',
+       title='fit pixel to wavelength')
+ax.axhline(y=myCal.wavelengthStack[0])
+ax.axhline(y=myCal.wavelengthStack[1])
+ax.axhline(y=myCal.wavelengthStack[2])
+ax.axvline(x=myCal.pixelPositionWavelength[0]+myCal.bwidth-myCal.xShift)
+ax.axvline(x=myCal.pixelPositionWavelength[1]+myCal.bwidth-myCal.xShift)
+ax.axvline(x=myCal.pixelPositionWavelength[2]+myCal.bwidth-myCal.xShift)
+
+plt.show()
+
+#%%
+
+
 print('visual check of grid and block position')
 
 viewer = napari.Viewer()
@@ -40,8 +75,11 @@ viewer = napari.Viewer()
 viewer.add_image(whiteImage, name='white' )
 
 # show spectral block
-blockImage = myCal.getSpectralBlockImage()
-blockImageLayer = viewer.add_image(blockImage*1, name='spectral block',opacity=0.2)
+blockImage = myCal.getSpectralBlockImage()*1
+blockImageLayer = viewer.add_image(blockImage, name='spectral block',opacity=0.2)
+
+
+
 
 answer = ""
 while answer != "y":
@@ -104,6 +142,7 @@ viewer3.add_image(myCal.getWarpedImage(whiteImage), name='warped white')
 viewer3.add_labels(label, name='peak real and ideal')
 
 
+
 #%% show the spectral images
 spImage = myCal.getSpectralImage(whiteImage,aberrationCorrection=False)
 spImageCor = myCal.getSpectralImage(whiteImage,aberrationCorrection=True)
@@ -117,14 +156,33 @@ viewer3.add_image(spImageCor, name = 'white cor', opacity=1,colormap='turbo')
 viewer3.add_image(spImage2, name = 'peak not cor', opacity=1,colormap='turbo')
 viewer3.add_image(spImage2Cor, name = 'peak cor', opacity=1,colormap='turbo')
 
-#%%
-#napari.run()
+#%% calculate 2D histogram
 
+_y = np.reshape(np.swapaxes(spImage2, 0, 2), (-1,spImage2.shape[0]))
+_nonzero = np.sum(_y,axis=1)
+y = _y[_nonzero>0] 
+x = np.zeros_like(y)
+x = x + myCal.wavelength
+
+_yCor = np.reshape(np.swapaxes(spImage2Cor, 0, 2), (-1,spImage2.shape[0]))
+_nonzero = np.sum(_yCor,axis=1)
+yCor = _yCor[_nonzero>0]
+
+bins=[myCal.wavelength.shape[0]*2,myCal.wavelength[::-1]]
+H, yedges, xedges = np.histogram2d(y.flatten(),x.flatten(),bins=bins)
+HCor, yedges, xedges = np.histogram2d(yCor.flatten(),x.flatten(),bins=bins)
+
+#%% show 2D histogram
+
+viewer5 = napari.Viewer()
+viewer5.add_image(H[::-1], name = 'raw', opacity=1,colormap='turbo')
+viewer5.add_image(HCor[::-1], name = 'corrected', opacity=1,colormap='turbo')
 
 #%% show hyper spectral image
 
 sViewer = XYWViewer(np.stack((spImage2,spImage2Cor)),myCal.wavelength)
 sViewer.run()
+
 
 
 #%% save class

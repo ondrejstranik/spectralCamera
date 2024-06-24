@@ -8,10 +8,14 @@ from copy import deepcopy
 
 from skimage.transform import warp
 from scipy.interpolate import griddata
+from scipy.optimize import curve_fit
 
 from skimage.filters import threshold_otsu, median, gaussian
 from skimage.morphology import disk
 from skimage import measure
+
+
+
 
 import spectralCamera
 import pickle
@@ -230,6 +234,11 @@ class CalibrateFrom3Images(BaseCalibrate):
     def setGridLine(self,spectralRange= None):
         ''' set the global superGrid for obtaining spectral blocks'''
 
+        def F(pixel,A,B,C):
+            return A*np.exp(B*pixel) + C
+
+        def iF(wavelength,A,B,C):
+            return 1/B*np.log((wavelength- C)/A)
 
         ''' calculate average position on the spots for different wavelength'''
         # calculate relative shift
@@ -241,7 +250,8 @@ class CalibrateFrom3Images(BaseCalibrate):
         meanXShift20= np.mean(vectorMatrixShift20[1,self.boolMatrix])
 
         # vector for spectral to pixel calibration
-        pixelPositionWavelength = np.array([0, meanXShift10, meanXShift20 ])
+        self.pixelPositionWavelength = np.array([0, meanXShift10, meanXShift20 ])
+
 
         if spectralRange is None:
             spectralRange = self.DEFAULT['spectralRange']
@@ -249,18 +259,21 @@ class CalibrateFrom3Images(BaseCalibrate):
             spectralRange = np.array(spectralRange)
 
         # define the size of the spectralBlock, and calibration
-        wavelengthFit = np.poly1d(np.polyfit(pixelPositionWavelength,self.wavelengthStack, 2))
-        pixelFit = np.poly1d(np.polyfit(self.wavelengthStack, pixelPositionWavelength, 2))
+        # fit with polynomial ...wavelength =  const + A*1/pixel  + B/pixel**2
+        wavelengthFitP,_ = curve_fit(f = F, xdata = self.pixelPositionWavelength, ydata = self.wavelengthStack, bounds=((0,-np.inf,0),(np.inf,0,np.inf)))
+        self.wavelengthFit = lambda x: F(x,*wavelengthFitP)
+        self.pixelFit = lambda x: iF(x,*wavelengthFitP)
 
-        self.bwidth = int(np.abs(pixelFit(spectralRange[0]) - pixelFit(spectralRange[1]))//2)
-        xShift = (pixelFit(spectralRange[0]) + pixelFit(spectralRange[1]))//2 # shift from the self.imMoStack[0].position
+        self.bwidth = int(np.abs(self.pixelFit(spectralRange[0]) - self.pixelFit(spectralRange[1]))//2)
+        self.xShift = (self.pixelFit(spectralRange[0]) + self.pixelFit(spectralRange[1]))//2 # shift from the self.imMoStack[0].position
 
-        self.wavelength = wavelengthFit(np.arange(2*self.bwidth+1)-self.bwidth+xShift)
+        self.wavelength = self.wavelengthFit(np.arange(2*self.bwidth+1)-self.bwidth+self.xShift)
+
 
         # define the global gridSuperPixel 
         # set only where all three calibration peak were identified 
         self.gridLine = GridSuperPixel()
-        self.gridLine.setGridPosition(self.positionMatrix[0,:,self.boolMatrix] + np.array([0,xShift]))
+        self.gridLine.setGridPosition(self.positionMatrix[0,:,self.boolMatrix] + np.array([0,self.xShift]))
         self.gridLine.xVec = self.imMoStack[0].xVec
         self.gridLine.yVec = self.imMoStack[0].yVec
         self.gridLine.imIdx = np.argwhere(self.boolMatrix) + self.idxMatrixOffset
