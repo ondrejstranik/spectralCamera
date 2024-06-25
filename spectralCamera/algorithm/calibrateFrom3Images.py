@@ -333,8 +333,8 @@ class CalibrateFrom3Images(BaseCalibrate):
         vx = np.zeros_like(self.imageStack[0])
         vy = np.zeros_like(self.imageStack[0])
 
-        vectorSubpixelShift = self.gridLine.position - np.round(self.gridLine.position)
         myPos = self.gridLine.getPositionInt()
+        vectorSubpixelShift = self.gridLine.position - myPos
 
         for ii in range(2*self.bheight+1):
             for jj in range(2*self.bwidth+1+2):
@@ -363,9 +363,10 @@ class CalibrateFrom3Images(BaseCalibrate):
             if self.dSubpixelShiftMatrix is None: self._setSubpixelShiftMatrix()
             self.warpMatrix = self.warpMatrix + self.dSubpixelShiftMatrix
 
-    def getWarpedImage(self, image):
-        ''' make the warping on the image'''
-        warpedImage = warp(image, self.warpMatrix, mode='edge')        
+    def getWarpedImage(self, image,order=1):
+        ''' make the warping on the image
+            order ... see warp function for detail'''
+        warpedImage = warp(image, self.warpMatrix, mode='edge',order=order)        
         return warpedImage
 
     def getSpectraBlock(self,image,bheight=None, bwidth=None):
@@ -401,14 +402,14 @@ class CalibrateFrom3Images(BaseCalibrate):
         '''
         return self.gridLine.getWYXImage(mySpec)
 
-    def getSpectralImage(self,rawImage,aberrationCorrection=False):
+    def getSpectralImage(self,rawImage,aberrationCorrection=False,order=1):
         ''' get the spectral image from raw image
         aberrationCorrection == False ... no image aberration applied
         it is just wrapper function
         '''
 
         if aberrationCorrection:
-            warpedImage = self.getWarpedImage(rawImage)
+            warpedImage = self.getWarpedImage(rawImage,order=order)
         else:
             warpedImage = rawImage
 

@@ -135,7 +135,8 @@ class GridSuperPixel():
     def getSpectraBlock(self, image, bheight=2, bwidth=30):
         ''' cut spectral pixel block out of the image
         height of the block = 1 + 2*bheight 
-        width of the bloc = 1 + 2*bwidth 
+        width of the bloc = 1 + 2*bwidth
+        only spectral blocks with flag inside are returned 
         '''
 
         mySpec = np.zeros((self.position.shape[0], 2*bheight+1,2*bwidth+1))

@@ -1,11 +1,11 @@
-''' script to generate calibration object from three images '''
+''' script to generate calibration object from one Raman Image '''
 
 #%% import and parameter definition
 
 import napari
 import spectralCamera
 import numpy as np
-from spectralCamera.algorithm.calibrateFrom3Images import CalibrateFrom3Images
+from spectralCamera.algorithm.calibrateRamanImage import CalibrateRamanImage
 from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
 
 import matplotlib.pyplot as plt
@@ -17,99 +17,50 @@ try:
 except:
     pass
 
-
 dfolder = spectralCamera.dataFolder
-whiteFileName = 'filter_wo_0.npy'
-imageNameStack = None # default
-wavelengthStack = None # default
-spectralRange = [505, 750]
+imageFileName = 'RamanCalibrationImage.npy'
+darkFileName = 'RamanDarkImage.npy'
+
 
 #%% data loading
 print('loading data')
 # load reference image
-whiteImage = np.load(dfolder + '\\' + whiteFileName)
+rawImage = np.load(dfolder + '\\' + imageFileName)
+darkImage = np.load(dfolder + '\\' + darkFileName)
 
 # initiate the calibration class
-myCal = CalibrateFrom3Images(imageNameStack=imageNameStack,
-                             wavelengthStack=wavelengthStack)
+myCal = CalibrateRamanImage()
 
 # load images
-myCal.setImageStack()
+myCal.setImageStack(rawImage=rawImage,darkImage=darkImage)
 
 #%% process calibration images
-if False:
-    print('processing the reference images - getting the grid')
-    myCal.prepareGrid(spectralRange)
-    myCal._saveGridStack()
-else:
-    print('loading the grid')
-    myCal._loadGridStack()
-    myCal._setPositionMatrix()
-    myCal.setGridLine(spectralRange=spectralRange)
-    myCal.bheight = 3
 
-
-#%% visual check that grids are on proper position
-
-fig, ax = plt.subplots()
-ax.plot(myCal.wavelength)
-
-ax.set(xlabel='pixels', ylabel='wavelength [nm]',
-       title='fit pixel to wavelength')
-ax.axhline(y=myCal.wavelengthStack[0])
-ax.axhline(y=myCal.wavelengthStack[1])
-ax.axhline(y=myCal.wavelengthStack[2])
-ax.axvline(x=myCal.pixelPositionWavelength[0]+myCal.bwidth-myCal.xShift)
-ax.axvline(x=myCal.pixelPositionWavelength[1]+myCal.bwidth-myCal.xShift)
-ax.axvline(x=myCal.pixelPositionWavelength[2]+myCal.bwidth-myCal.xShift)
-
-plt.show()
+print('prepare Grids')
+myCal.prepareGrids()
 
 #%%
-
 
 print('visual check of grid and block position')
 
 viewer = napari.Viewer()
 
 # white image
-viewer.add_image(whiteImage, name='white' )
+viewer.add_image(myCal.image, name='raw Image', colormap='turbo' )
 
 # show spectral block
 blockImage = myCal.getSpectralBlockImage()*1
 blockImageLayer = viewer.add_image(blockImage, name='spectral block',opacity=0.2)
 
-
-
-
-answer = ""
-while answer != "y":
-    answer = input(f" is spectral range {spectralRange} good [Y/N]  ").lower()
-    if answer != "y":
-        range1 = int(input(f"{spectralRange[0]} --> : "))
-        range2 = int(input(f"{spectralRange[1]} --> : "))
-        spectralRange = [range1,range2]
-        myCal.setGridLine(spectralRange)
-        blockImage = myCal.getSpectralBlockImage()
-        blockImageLayer.data = blockImage*1
-
-
-# calibration images
-iS = myCal.imageStack[0] + myCal.imageStack[1] + myCal.imageStack[2]
-viewer.add_image(iS,name = 'calibration images', opacity=0.5, colormap='hsv')
-
 # located spectral peaks in the calibration images
-peakLabel = np.zeros_like(myCal.imageStack[0], dtype='int')
-for ii,imMo in enumerate(myCal.imMoStack):
-    selectPoint = (imMo.imIdx[:,0]%2 == 0 ) & (imMo.imIdx[:,1]%2 == 0 )
-    peakLabel[imMo.position[selectPoint,0].astype(int),imMo.position[selectPoint,1].astype(int)] = ii+1
+peakLabel = np.zeros_like(myCal.image, dtype='int')
+selectPoint = myCal.gridLine.inside
+peakLabel[myCal.peakLeftPosition[selectPoint,0].astype(int),myCal.peakLeftPosition[selectPoint,1].astype(int)] = 1
+peakLabel[myCal.peakRightPosition[selectPoint,0].astype(int),myCal.peakRightPosition[selectPoint,1].astype(int)] = 2
 viewer.add_labels(peakLabel, name='peaks', opacity=1)
 
 # show zero points
-point00 = []
-for ii,imMo in enumerate(myCal.imMoStack):
-    point00.append(imMo.xy00)
-viewer.add_points(np.array(point00), size= 50, opacity=0.2, name= 'zero position')
+viewer.add_points(myCal.gridLine.xy00, size= 50, opacity=0.2, name= 'zero position')
 
 
 #%% calculate the calibration warping matrices
@@ -121,12 +72,15 @@ myCal.setWarpMatrix(spectral=True, subpixel=True)
 print('visual check of the calibration routine')
 
 # located spectral peaks in the calibration images
-label = np.zeros_like(myCal.imageStack[0], dtype='int')
+label = np.zeros_like(myCal.image, dtype='int')
 avePoint = myCal.gridLine.getPositionInt()
-for ii,imMo in enumerate(myCal.imMoStack):
-    px = np.argmin(np.abs(myCal.wavelength - myCal.wavelengthStack[ii]))
-    label[imMo.position[:,0].astype(int),imMo.position[:,1].astype(int)] = 2
-    label[avePoint[:,0].astype(int), avePoint[:,1].astype(int) -myCal.bwidth + px] = 3
+selectPoint = myCal.gridLine.inside
+label[myCal.peakLeftPosition[selectPoint,0].astype(int),myCal.peakLeftPosition[selectPoint,1].astype(int)] = 2
+label[myCal.peakRightPosition[selectPoint,0].astype(int),myCal.peakRightPosition[selectPoint,1].astype(int)] = 2
+px = np.argmin(np.abs(myCal.wavelength - myCal.DEFAULT['kPosition'][0]))
+label[avePoint[selectPoint,0].astype(int), avePoint[selectPoint,1].astype(int) -myCal.bwidth + px] = 3
+px = np.argmin(np.abs(myCal.wavelength - myCal.DEFAULT['kPosition'][1]))
+label[avePoint[selectPoint,0].astype(int), avePoint[selectPoint,1].astype(int) -myCal.bwidth + px] = 3
 
 viewer2 = napari.Viewer()
 viewer2.add_image(myCal.dSubpixelShiftMatrix, name='SubpixelShift',colormap='turbo')

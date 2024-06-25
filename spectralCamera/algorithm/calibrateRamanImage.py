@@ -5,26 +5,23 @@ class to calibrate Raman image from one image of homogenous image of polymer pol
 
 import numpy as np
 
-from skimage import data, filters, measure, morphology
-from skimage.filters import threshold_otsu, rank, median
+from skimage import measure, morphology
+from skimage.filters import threshold_otsu, median
 from skimage.morphology import disk
 from skimage.transform import warp
 
 from spectralCamera.algorithm.baseCalibrate import BaseCalibrate
 from spectralCamera.algorithm.gridSuperPixel import GridSuperPixel
 
-import spectralCamera
-import pickle
 
-class CalibrateRamanImages(BaseCalibrate):
+class CalibrateRamanImage(BaseCalibrate):
     ''' main class to calibrate Raman images '''
 
     DEFAULT = {'kPosition': [1002, 1659],
                 'polymer': 'polystyrene',
-                'classFile': 'CalibrateRamanImages.obj',
                 'cosmicRayThreshold': 10000}
 
-    def __init__(self,image=None,darkImage=None):
+    def __init__(self,image=None,darkImage=None,**kwargs):
         ''' class definition '''
 
         super().__init__(**kwargs)
@@ -42,16 +39,30 @@ class CalibrateRamanImages(BaseCalibrate):
         self.mask = None
         self.peakLeftPosition = None
         self.peakRightPosition = None
+        self.pixelPositionK = None
 
         self.warpMatrix = None
         self.dSubpixelShiftMatrix = None
         self.dSpectralWarpMatrix = None 
 
 
+    def setImageStack(self,rawImage=None,darkImage=None):
+        ''' set raw image and dark image'''
+
+        self.image = rawImage
+        self.darkImage = darkImage
+
+
+
     def _identifySpectralLine(self):
         ''' identify spectral line from the image'''
 
-        myim = self.image
+        # subtract dark image if provided
+        if self.darkImage is not None:
+            myim = self.image - self.darkImage
+        else:
+            myim = self.image
+
         medianIm = median(myim, disk(1))
 
         # remove white pixels if dark Image provided
@@ -66,7 +77,7 @@ class CalibrateRamanImages(BaseCalibrate):
         myim[cosmicRayMask] = medianIm[cosmicRayMask]
 
         # identify the spectral line
-        threshold = filters.threshold_otsu(myim)
+        threshold = threshold_otsu(myim)
         mask = myim > threshold
 
         # connect broken spectral lines
@@ -97,10 +108,12 @@ class CalibrateRamanImages(BaseCalibrate):
         self.gridLine.getGridInfo()
         self.gridLine.getPixelIndex()
 
-        
-        secureXOffset = 10
-        self.gridLine.getPositionOutsideImage(myim,bheight=bheight,bwidth=bwidth+secureXOffset)
-        self.spBlock = self.gridLine.getSpectraBlock(myim,bheight=bheight,bwidth=bwidth)
+        # identify the spectral block inside the camera
+        secureXOffset = 10 # add secure offset in the case not whole gridlines are visible
+        self.gridLine.getPositionOutsideImage(myim,bheight=self.bheight,bwidth=self.bwidth+secureXOffset)
+
+        # get the spectral blocks
+        self.spBlock = self.gridLine.getSpectraBlock(myim,bheight=self.bheight,bwidth=self.bwidth)
 
     def _getLeftMax(self):
         ''' get position of the strongest peak on the left '''
@@ -108,7 +121,9 @@ class CalibrateRamanImages(BaseCalibrate):
         # left spectral lines averaged over y
         mySpec = np.mean(self.spBlock,axis=1)
         # block the right side
-        mySpec[:,mySpec.shape[1]//2:] = 0
+        #mySpec[:,mySpec.shape[1]//2:] = 0
+        mySpec[:,self.bwidth:] = 0
+
 
         # find the max (full pixel precision)
         maxIdx = np.argmax(mySpec, axis=1)
@@ -136,7 +151,8 @@ class CalibrateRamanImages(BaseCalibrate):
 
         # right spectral lines averaged over y
         mySpec = np.mean(self.spBlock,axis=1)
-        mySpec[:,0:mySpec.shape[1]//2] = 0
+        #mySpec[:,0:mySpec.shape[1]//2] = 0
+        mySpec[:,0:self.bwidth] = 0
 
         # find the max (full pixel precision)
         maxIdx = np.argmax(mySpec, axis=1)
@@ -159,7 +175,7 @@ class CalibrateRamanImages(BaseCalibrate):
 
     def prepareGrids(self):
         ''' wrapper function. carry out individual steps to get all info about grid
-        in order to get the hyperspectral image
+        in order to get the hyper-spectral image
         '''
         self._identifySpectralLine()
         self._getLeftMax()
@@ -170,16 +186,23 @@ class CalibrateRamanImages(BaseCalibrate):
         # so that it is in approximate middle 
         dxPosition = np.mean((self.gridLine.position - self.peakLeftPosition),axis=0)[1]
 
-        self.gridLine.position = 1*self.peakLeftPosition
+        self.gridLine.position = 1*self.peakLeftPosition # make a copy of it 
         self.gridLine.position[:,1] += dxPosition
 
+        # get the pixel to k-vectors (called 'wavelength' in this case) in the spectral block
+        # use linear fit on 2 calibration peaks 
+
         # assign the k-vectors pixels
-        bheight =self.spBlock.shape[1]//2
-        bwidth =self.spBlock.shape[2]//2
         dkPosition = np.mean(self.peakRightPosition[:,1] - self.peakLeftPosition[:,1])
         self.pixelPositionK = np.array([
-            bwidth - dxPosition, bwidth - dxPosition + dkPosition]
-        )
+            self.bwidth - dxPosition, self.bwidth - dxPosition + dkPosition]
+            )
+
+        # linear fit function
+        kFit = np.poly1d(np.polyfit(self.pixelPositionK,self.DEFAULT['kPosition'], 1))
+
+        # for compatibility (inheritance) reason the k-vectors are called 'wavelength'
+        self.wavelength =  kFit(np.arange(2*self.bwidth +1))
 
     def getSpectraBlock(self, image):
         ''' get the spectral blocks out of the image
@@ -192,6 +215,18 @@ class CalibrateRamanImages(BaseCalibrate):
 
         return self.gridLine.getSpectraBlock(image, bheight=self.bheight, bwidth=self.bwidth)
 
+    def getSpectralBlockImage(self):
+        ''' for visual check.
+        wrapper for gridSuperPixel.getSpectralBlockImage'''
+
+        return self.gridLine.getSpectralBlockImage(self.image,
+                                                   bheight=self.bheight,
+                                                   bwidth=self.bwidth)
+
+
+
+
+
     def getWYXImage(self,mySpec):
         ''' get the spectral image
         wrapper for a method from the GridSuperPixel class
@@ -203,22 +238,6 @@ class CalibrateRamanImages(BaseCalibrate):
         wrapper for a method from the GridSuperPixel class
         '''
         return self.gridLine.getAlignedImage(mySpec)
-
-    def getK(self):
-        ''' get the wavelength vector defined on the range of spectral block
-        use linear fit on 2 calibration peaks '''
-
-        kFit = np.poly1d(np.polyfit(self.pixelPositionK,self.DEFAULT['kPosition'], 1))
-        #return kFit(np.arange(self.spBlock.shape[2]))
-        return kFit(np.arange(2*self.bwidth +1))
-
-
-    def getWavelength(self):
-        ''' only for compatibility issue
-        it will be still giving the k-numbers 
-        '''
-        return self.getK()
-
 
     def getSpectralImage(self,rawImage,aberrationCorrection=False,
                          whitePixelCorrection=True,
@@ -233,14 +252,14 @@ class CalibrateRamanImages(BaseCalibrate):
         '''
 
         try:
-            # remove white pixels from  image
-            if  whitePixelCorrection and self.whitePixel is not None:
-                medianIm = median(rawImage, disk(1))
-                rawImage[self.whitePixel] = medianIm[self.whitePixel]
             # remove cosmic ray/oversaturated images
             if whitePixelCorrection:
+                medianIm = median(rawImage, disk(1))
                 cosmicRayMask = rawImage> self.DEFAULT['cosmicRayThreshold']
                 rawImage[cosmicRayMask] = medianIm[cosmicRayMask]
+            # remove white pixels from  image
+            if  whitePixelCorrection and self.whitePixel is not None:
+                rawImage[self.whitePixel] = medianIm[self.whitePixel]
         except:
             pass
 
@@ -256,7 +275,6 @@ class CalibrateRamanImages(BaseCalibrate):
         #    mySpec = mySpec * self.ffFactor[:,None,None]
 
         return self.getWYXImage(mySpec)
-
 
     def setWarpMatrix(self,spectral=True, subpixel=True):
         ''' set the final warping matrix
@@ -302,33 +320,34 @@ class CalibrateRamanImages(BaseCalibrate):
         ffFactor[ffFactor==0] = 1
         self.ffFactor = np.mean(mySpec)/ffFactor
           
-
-
     def _setSubpixelShiftMatrix(self):
         ''' calculate warp matrix to shift left spots on integer grids
         TODO: test it, add spectral calibration as well '''
 
+
+        # generate blocks with constant shift 
+        vx = np.zeros_like(self.image)
+        vy = np.zeros_like(self.image)
+
         points = self.peakLeftPosition
         pointsIdeal = np.round(points).astype(int)
+        vectorSubpixelShift = pointsIdeal - points 
+        
+        myPos = self.gridLine.getPositionInt()[self.gridLine.inside,:]
+        # TODO: check if it is not better
+        # probably better solution. point related to the gridline
+        # vectorSubpixelShift = self.gridLine.position - myPos
 
-        vector = pointsIdeal - points 
-
-        self.dSubpixelShiftMatrix  = np.zeros((2,*self.image.shape)) # 0... yshift, 1 ... xshift
-
-        bwidth = self.spBlock.shape[2]//2
-        bheight = self.spBlock.shape[1]//2
-        myPositionInt = self.gridLine.getPositionInt()
-
-        for ii in range(2*bwidth+1):
-            for jj in range(2*bheight+1):
+        for ii in range(2*self.bwidth+1):
+            for jj in range(2*self.bheight+1):
                 # y-shift   
-                self.dSubpixelShiftMatrix[myPositionInt[self.gridLine.inside,0]*0,
-                    myPositionInt[self.gridLine.inside,0]+jj-bheight,
-                    myPositionInt[self.gridLine.inside,1]+ii-bwidth] = vector[self.gridLine.inside,0]
+                vy[myPos[:,0]+jj-self.bheight,
+                    myPos[:,1]+ii-self.bwidth] = vectorSubpixelShift[self.gridLine.inside,0]
                 # x-shift
-                self.dSubpixelShiftMatrix[myPositionInt[self.gridLine.inside,0]*0 + 1 ,
-                    myPositionInt[self.gridLine.inside,0]+jj-bheight,
-                    myPositionInt[self.gridLine.inside,1]+ii-bwidth] = vector[self.gridLine.inside,1]
+                vx[myPos[:,0]+jj-self.bheight,
+                    myPos[:,1]+ii-self.bwidth] = vectorSubpixelShift[self.gridLine.inside,1]
+
+        self.dSubpixelShiftMatrix = np.array([vy,vx])
 
     def _setSpectralWarpMatrix(self):
         ''' calculate the chromatic distortion matrix from vectors shifts
@@ -336,33 +355,24 @@ class CalibrateRamanImages(BaseCalibrate):
         TODO: just copied code. adapt it !!!
         '''
 
-        # calculate relative shift
-        vectorShift10 = (self.positionMatrix[1,:,self.boolMatrix] 
-                                - self.positionMatrix[0,:,self.boolMatrix])
-        vectorShift20 = (self.positionMatrix[2,:,self.boolMatrix] 
-                                - self.positionMatrix[0,:,self.boolMatrix])
-
         # get the mean of the shift 
-        meanShift10= np.mean(vectorShift10, axis=0)
-        meanShift20= np.mean(vectorShift20, axis=0)
+        meanPeakRightPosition= np.mean(self.peakRightPosition, axis=0)
+        meanPeakLeftPosition= np.mean(self.peakRightPosition, axis=0)
 
         # deviation from the ideal position (y .. tilting, x ... stretching) for the two wavelength 
-        dVectorShift10 = vectorShift10 -  meanShift10
-        dVectorShift20 = vectorShift20 -  meanShift20
-
-        # pixel position for the two wavelength  
-        px1 = np.argmin(np.abs(self.wavelength - self.wavelengthStack[1]))
-        px2 = np.argmin(np.abs(self.wavelength - self.wavelengthStack[2]))
+        dVectorShiftRight = self.peakRightPosition -  meanPeakRightPosition
+        dVectorShiftLeft = self.peakLeftPosition -  meanPeakLeftPosition
 
         def linFit(px):
             # linear fit of the deviation for given pixel in the blocks
-            slope = ((dVectorShift20 - dVectorShift10) / (px2 - px1) )
-            return  slope*(px - px1) + dVectorShift10
+            slope = ((dVectorShiftRight - dVectorShiftLeft) / 
+                     (self.pixelPositionK[1]- self.pixelPositionK[0]) )
+            return  slope*(px - self.pixelPositionK[0]) + dVectorShiftLeft
 
         # populate the spectralWarp Matrix
-        vx = np.zeros_like(self.imageStack[0])
-        vy = np.zeros_like(self.imageStack[0])
-        myPos = self.gridLine.getPositionInt()
+        vx = np.zeros_like(self.image)
+        vy = np.zeros_like(self.image)
+        myPos = self.gridLine.getPositionInt()[self.gridLine.inside,:]
 
         for ii in range(2*self.bheight+1):
             for jj in range(2*self.bwidth+1):
@@ -372,10 +382,6 @@ class CalibrateRamanImages(BaseCalibrate):
                 (myPos[:,1]+jj-self.bwidth).astype(int)] = linFit(jj)[:,0]
 
         self.dSpectralWarpMatrix = np.array([vy,vx])
-
-
-
-
 
     def getWarpedImage(self, image):
         ''' make the warping on the image'''
@@ -403,14 +409,14 @@ if __name__ == "__main__":
         fFolder = r'g:\office\work\projects - free\23-07-07 Integral field uscope - Mariia\23-09-26 Mariia data\DATA\calibration2'
         myRI = RamanImage(fFolder).getImage()  
 
-        myCal = CalibrateRamanImages(myRI)
+        myCal = (myRI)
         myCal.prepareGrids()
 
         myCal.setWarpMatrix()
     
         myCal.saveClass()
     else:
-        myCal = CalibrateRamanImages(0)
+        myCal = (0)
         myCal = myCal.loadClass()
     
     myK = myCal.getK()
