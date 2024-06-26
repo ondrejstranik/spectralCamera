@@ -18,16 +18,17 @@ except:
     pass
 
 
-dfolder = spectralCamera.dataFolder
-whiteFileName = 'filter_wo_0.npy'
-imageNameStack = None # default
-wavelengthStack = None # default
-spectralRange = [505, 750]
+spectralCamera.dataFolder = r'C:\Users\ostranik\Documents\GitHub\spectralCamera\spectralCamera\DATA\24-06-26-calibration'
+
+whiteFileName = 'white_0.npy'
+imageNameStack = ['filter_602_0','filter_505_0','filter_705_0']
+wavelengthStack = [602,505,705]
+spectralRange = [490, 750]
 
 #%% data loading
 print('loading data')
 # load reference image
-whiteImage = np.load(dfolder + '\\' + whiteFileName)
+whiteImage = np.load(spectralCamera.dataFolder + '\\' + whiteFileName)
 
 # initiate the calibration class
 myCal = CalibrateFrom3Images(imageNameStack=imageNameStack,
@@ -188,5 +189,5 @@ sViewer.run()
 
 #%% save class
 if input("Save the calibration [Y/N]? ").lower()=='y':
-    print(f'calibration will be saved in folder: {dfolder}')
-    myCal.saveClass(classFolder=dfolder)
+    print(f'calibration will be saved in folder: {spectralCamera.dataFolder}')
+    myCal.saveClass(classFolder=spectralCamera.dataFolder)

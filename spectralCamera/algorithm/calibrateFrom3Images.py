@@ -255,13 +255,13 @@ class CalibrateFrom3Images(BaseCalibrate):
         # define the size of the spectralBlock, and calibration
         # fit with polynomial ...wavelength =  const + A*1/pixel  + B/pixel**2
         wavelengthFitP,_ = curve_fit(f = F, xdata = self.pixelPositionWavelength, ydata = self.wavelengthStack, bounds=((0,-np.inf,0),(np.inf,0,np.inf)))
-        self.wavelengthFit = lambda x: F(x,*wavelengthFitP)
-        self.pixelFit = lambda x: iF(x,*wavelengthFitP)
+        wavelengthFit = lambda x: F(x,*wavelengthFitP)
+        pixelFit = lambda x: iF(x,*wavelengthFitP)
 
-        self.bwidth = int(np.abs(self.pixelFit(spectralRange[0]) - self.pixelFit(spectralRange[1]))//2)
-        self.xShift = (self.pixelFit(spectralRange[0]) + self.pixelFit(spectralRange[1]))//2 # shift from the self.imMoStack[0].position
+        self.bwidth = int(np.abs(pixelFit(spectralRange[0]) - pixelFit(spectralRange[1]))//2)
+        self.xShift = (pixelFit(spectralRange[0]) + pixelFit(spectralRange[1]))//2 # shift from the self.imMoStack[0].position
 
-        self.wavelength = self.wavelengthFit(np.arange(2*self.bwidth+1)-self.bwidth+self.xShift)
+        self.wavelength = wavelengthFit(np.arange(2*self.bwidth+1)-self.bwidth+self.xShift)
 
 
         # define the global gridSuperPixel 

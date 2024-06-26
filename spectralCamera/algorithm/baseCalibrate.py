@@ -54,9 +54,10 @@ class BaseCalibrate():
         else:
             fullFile = str(classFile)
 
-        self = pickle.load(open(fullFile, 'rb'))
+        #self = pickle.load(open(fullFile, 'rb'))
+        
+        return pickle.load(open(fullFile, 'rb'))
 
-        return self
 
 
 if __name__ == "__main__":
