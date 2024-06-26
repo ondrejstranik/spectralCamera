@@ -90,26 +90,21 @@ viewer2.add_labels(label, name='peaks', opacity=1)
 #%% visual check of the warped image
 
 viewer3 = napari.Viewer()
-viewer3.add_image(iS, name = 'calibration image', opacity=1,colormap='turbo')
-viewer3.add_image(myCal.getWarpedImage(iS), name = 'warped calibration image', opacity=1,colormap='turbo')
-viewer3.add_image(whiteImage, name='white')
-viewer3.add_image(myCal.getWarpedImage(whiteImage), name='warped white')
+viewer3.add_image(rawImage, name = 'calibration image', opacity=1,colormap='turbo')
+viewer3.add_image(myCal.getWarpedImage(rawImage), name = 'warped calibration image', opacity=1,colormap='turbo')
 viewer3.add_labels(label, name='peak real and ideal')
 
 
 
 #%% show the spectral images
-spImage = myCal.getSpectralImage(whiteImage,aberrationCorrection=False)
-spImageCor = myCal.getSpectralImage(whiteImage,aberrationCorrection=True)
 
-spImage2 = myCal.getSpectralImage(iS, aberrationCorrection=False)
-spImage2Cor = myCal.getSpectralImage(iS,aberrationCorrection=True)
+myCal.setWarpMatrix(spectral=True, subpixel=True)
+spImage = myCal.getSpectralImage(rawImage,aberrationCorrection=False)
+spImageCor = myCal.getSpectralImage(rawImage,aberrationCorrection=True)
 
 viewer3 = napari.Viewer()
-viewer3.add_image(spImage, name = 'white not cor', opacity=1,colormap='turbo')
-viewer3.add_image(spImageCor, name = 'white cor', opacity=1,colormap='turbo')
-viewer3.add_image(spImage2, name = 'peak not cor', opacity=1,colormap='turbo')
-viewer3.add_image(spImage2Cor, name = 'peak cor', opacity=1,colormap='turbo')
+viewer3.add_image(spImage, name = 'image not cor', opacity=1,colormap='turbo')
+viewer3.add_image(spImageCor, name = 'image cor', opacity=1,colormap='turbo')
 
 #%% calculate 2D histogram
 

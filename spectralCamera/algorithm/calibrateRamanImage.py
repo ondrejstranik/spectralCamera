@@ -355,13 +355,14 @@ class CalibrateRamanImage(BaseCalibrate):
         TODO: just copied code. adapt it !!!
         '''
 
-        # get the mean of the shift 
-        meanPeakRightPosition= np.mean(self.peakRightPosition, axis=0)
-        meanPeakLeftPosition= np.mean(self.peakRightPosition, axis=0)
+        dPeakRightPosition= (self.peakRightPosition[self.gridLine.inside,:] - 
+                             self.gridLine.getPositionInt()[self.gridLine.inside,:])
+        dPeakLeftPosition= (self.peakLeftPosition[self.gridLine.inside,:] - 
+                             self.gridLine.getPositionInt()[self.gridLine.inside,:])
 
         # deviation from the ideal position (y .. tilting, x ... stretching) for the two wavelength 
-        dVectorShiftRight = self.peakRightPosition -  meanPeakRightPosition
-        dVectorShiftLeft = self.peakLeftPosition -  meanPeakLeftPosition
+        dVectorShiftRight = dPeakRightPosition - np.mean(dPeakRightPosition,axis=0)
+        dVectorShiftLeft = dPeakLeftPosition - np.mean(dPeakLeftPosition,axis=0)
 
         def linFit(px):
             # linear fit of the deviation for given pixel in the blocks
