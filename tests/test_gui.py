@@ -5,11 +5,12 @@ import pytest
 @pytest.mark.GUI
 def test_XYWViewerGUI():
     ''' testing the viewer with webcam'''
-    from viscope.main import Viscope
+    from viscope.main import viscope
     from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera    
     from spectralCamera.instrument.sCamera.sCamera import SCamera
     from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
+    from spectralCamera.gui.sCameraGUI import SCameraGUI
 
     camera = WebCamera(name='WebCamera')
     camera.connect()
@@ -25,9 +26,11 @@ def test_XYWViewerGUI():
     sCamera.setParameter('threadingNow',True)
 
     print('starting main event loop')
-    viscope = Viscope()
     newGUI  = XYWViewerGui(viscope)
     newGUI.setDevice(sCamera)
+    newGUI  = SCameraGUI(viscope)
+    newGUI.setDevice(sCamera)
+
     viscope.run()
 
     camera.disconnect()

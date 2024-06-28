@@ -34,6 +34,9 @@ class SCamera(BaseProcessor):
         self.sImage = None
         self.wavelength = None
         self.aberrationCorrection = SCamera.DEFAULT['aberrationCorrection']
+        self.dTime = 0 # acquisition/processing time
+        self.t0 = time.time()
+
 
         # get default calibration data
         self.setCalibrationData()
@@ -103,6 +106,8 @@ class SCamera(BaseProcessor):
         ''' process newly arrived data '''
         #print(f"processing data from {self.DEFAULT['name']}")
         self.sImage = self.imageDataToSpectralCube(self.camera.rawImage)
+        self.dTime = time.time() -self.t0
+        self.t0 = self.t0 + self.dTime
         return self.sImage
 
 

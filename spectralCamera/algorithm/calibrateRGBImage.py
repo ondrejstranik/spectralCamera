@@ -24,7 +24,7 @@ class CalibrateRGBImage(BaseCalibrate):
         else:
             self.rgbOrder = rgbOrder     
 
-    def getSpectralImage(self,rawImage,*args):
+    def getSpectralImage(self,rawImage,**kargs):
         ''' get the spectral image from raw image'''
 
         if self.rgbOrder== 'RGB': # three images next to each other
