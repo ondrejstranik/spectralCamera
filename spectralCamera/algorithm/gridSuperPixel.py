@@ -27,6 +27,10 @@ class GridSuperPixel():
         # bool value for the boxes inside the image
         self.inside = None
 
+        # indexes of the spectral block for given heigh and width
+        self.spBlockRowIdx = None
+        self.spBlockColumnIdx = None
+
         # devMax ...maximal deviation of the pixel position from 
         # the latices vector in order to identify it 
         self.devMax = self.DEFAULT['devMax']
@@ -132,8 +136,52 @@ class GridSuperPixel():
 
         return self.inside
 
+    def getSpBlockIdx(self,bheight=2, bwidth=30):
+        ''''
+        precalculate the indexes of the spectral block,
+        so that the spectral block can be extracted by a simple array indexing
+        return (idxRow, idxColumn)
+        shape of the idxRow and idxColumn is (N, 2*bheight+1, 2*bwidth +1),
+        where N is number of blocks 
+        obtaining spectral blocks from image x is done by x[idxRow,idxColumn]
+        '''
+        nInside = np.sum(self.inside*1)
+        self.spBlockRowIdx = np.empty((nInside,2*bheight+1,2*bwidth+1,dtype=int))
+        self.spBlockColumnIdx = np.empty((nInside,2*bheight+1,2*bwidth+1,dtype=int))
+
+        myPosition = self.getPositionInt()
+
+        for ii in range(2*bwidth+1):
+            for jj in range(2*bheight+1):
+                self.spBlockRowIdx[:,jj,ii] = myPosition[self.inside,0]+jj-bheight
+                self.spBlockColumnIdx[:,jj,ii] = myPosition[self.inside,1]+ii-bwidth
+
+        return (self.spBlockRowIdx,self.spBlockColumnIdx)
+
+
     def getSpectraBlock(self, image, bheight=2, bwidth=30):
         ''' cut spectral pixel block out of the image
+        height of the block = 1 + 2*bheight 
+        width of the bloc = 1 + 2*bwidth
+        only spectral blocks with flag inside are returned 
+        '''
+
+        # precalculate the indexes if necessary
+        if self.spBlockRowIdx:
+                self.getSpBlockIdx(bheight=bheight, bwidth=bwidth)
+        if (self.spBlockRowIdx.shape[1] != bheight or 
+            self.spBlockRowIdx.shape[2] != bwidth):
+                self.getSpBlockIdx(bheight=bheight, bwidth=bwidth)
+
+        mySpec = image[self.spBlockRowIdx, self.spBlockColumnIdx]
+
+        return mySpec
+
+
+
+    def __getSpectraBlock(self, image, bheight=2, bwidth=30):
+        ''' _________old slow version_______________        
+        cut spectral pixel block out of the image
         height of the block = 1 + 2*bheight 
         width of the bloc = 1 + 2*bwidth
         only spectral blocks with flag inside are returned 
