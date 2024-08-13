@@ -145,9 +145,10 @@ class GridSuperPixel():
         where N is number of blocks 
         obtaining spectral blocks from image x is done by x[idxRow,idxColumn]
         '''
+        print('getSpBlockInd: indexing the spectral Blocks')
         nInside = np.sum(self.inside*1)
-        self.spBlockRowIdx = np.empty((nInside,2*bheight+1,2*bwidth+1,dtype=int))
-        self.spBlockColumnIdx = np.empty((nInside,2*bheight+1,2*bwidth+1,dtype=int))
+        self.spBlockRowIdx = np.empty((nInside,2*bheight+1,2*bwidth+1),dtype=int)
+        self.spBlockColumnIdx = np.empty((nInside,2*bheight+1,2*bwidth+1),dtype=int)
 
         myPosition = self.getPositionInt()
 
@@ -167,14 +168,13 @@ class GridSuperPixel():
         '''
 
         # precalculate the indexes if necessary
-        if self.spBlockRowIdx:
+        if self.spBlockRowIdx is None:
                 self.getSpBlockIdx(bheight=bheight, bwidth=bwidth)
-        if (self.spBlockRowIdx.shape[1] != bheight or 
-            self.spBlockRowIdx.shape[2] != bwidth):
+        if (self.spBlockRowIdx.shape[1] != 2*bheight+1 or 
+            self.spBlockRowIdx.shape[2] != 2*bwidth+1):
                 self.getSpBlockIdx(bheight=bheight, bwidth=bwidth)
 
         mySpec = image[self.spBlockRowIdx, self.spBlockColumnIdx]
-
         return mySpec
 
 
@@ -274,8 +274,13 @@ class GridSuperPixel():
 
         # generate the (lambda y x) image
         wyxImage = np.zeros(wyxImageShape)
-        for ii in range(btwidth):
-            wyxImage[ii,imIdx[:,0],imIdx[:,1]] = mySpecAve[:,ii]
+        
+        # slow method
+        #for ii in range(btwidth):
+        #    wyxImage[ii,imIdx[:,0],imIdx[:,1]] = mySpecAve[:,ii]
+
+        wyxImage[:,imIdx[:,0],imIdx[:,1]] = mySpecAve.T
+   
 
         return wyxImage
 
