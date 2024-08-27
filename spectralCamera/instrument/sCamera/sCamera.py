@@ -37,6 +37,9 @@ class SCamera(BaseProcessor):
         self.dTime = 0 # acquisition/processing time
         self.t0 = time.time()
 
+        # parameters for saving of images
+        self.flagSaving = False
+        self.savingFolder = None
 
         # get default calibration data
         self.setCalibrationData()
@@ -108,6 +111,9 @@ class SCamera(BaseProcessor):
         self.sImage = self.imageDataToSpectralCube(self.camera.rawImage)
         self.dTime = time.time() -self.t0
         self.t0 = self.t0 + self.dTime
+        if self.flagSaving:
+            np.save(self.savingFolder+ '/'+ f'time_{time.time_ns()}',self.sImage)
+        
         return self.sImage
 
 

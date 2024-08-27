@@ -114,7 +114,7 @@ class XYWViewer():
         self.viewer.dims.events.current_step.connect(self.updateHistogram)
        # connect changes in data in this layer
         self.pointLayer.events.data.connect(self.updateSpectra)
-        #self.pointLayer.events.data.connect(self.drawSpectraGraph)
+        self.pointLayer._face.events.current_color.connect(self.colorChange)
 
     def calculateSpectra(self):
         ''' calculate the spectra at the given points'''
@@ -148,6 +148,20 @@ class XYWViewer():
                     self.pointSpectra.append(temp)
                 except:
                     self.pointSpectra.append(0*self.wavelength)
+    
+    def colorChange(self):
+        ''' change the color of the spectral with the change of the point color
+        very cumbersome way due to the internal processes in napari'''
+        # it is necessary to remember it 
+        _aux = self.pointLayer.face_color[list(self.pointLayer.selected_data)]
+
+        # this allow to draw spectral lines with proper color
+        # however it will stop redrawing the points with a new color
+        self.pointLayer.face_color[list(self.pointLayer.selected_data)] = self.pointLayer._face.current_color
+        self.drawSpectraGraph()
+
+        # therefore the face_colors are set back only to be put internally to new values
+        self.pointLayer.face_color[list(self.pointLayer.selected_data)] = _aux
 
 
     def drawSpectraGraph(self):
@@ -161,6 +175,10 @@ class XYWViewer():
             for ii in np.arange(len(self.pointSpectra)):
                 mypen = QPen(QColor.fromRgbF(*list(
                     self.pointLayer.face_color[ii])))
+                #mypen = QPen(QColor.fromRgbF(*list(
+                #    self.pointLayer._face.colors[ii])))
+
+
                 mypen.setWidth(0)
                 lineplot = self.spectraGraph.plot(pen= mypen)
                 lineplot.setData(self.wavelength, self.pointSpectra[ii])
