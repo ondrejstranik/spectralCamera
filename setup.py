@@ -19,7 +19,9 @@ setuptools.setup(
         'napari',
         'opencv-python',
         'pyqtgraph',
-        'scikit-learn',
+        'scikit-learn'
+        'lxml',
+        'lxml_html_clean'
         ],
     classifiers=[
         "Programming Language :: Python :: 3",

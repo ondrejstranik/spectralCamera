@@ -10,6 +10,7 @@ if sys.version_info >= (3,8):
 import PFPyCameraLib as pf
 
 import numpy as np
+import time
 
 #%%
 
@@ -385,9 +386,12 @@ class Photonfocus:
             self.pfBufferReleased= False
             #print(pfResult)
 
+            # loop for waiting for a valid image
             while waitForValidImage and pfResult != pf.Error.NONE:
                 self._releaseLastBuffer()
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
+                time.sleep(0.03)
+
                 #print(pfResult)
                 #print(waitForValidImage)
 

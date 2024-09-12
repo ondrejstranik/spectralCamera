@@ -10,7 +10,7 @@ def test_webCamera():
     cam = WebCamera(name='WebCamera',filterType='RGGB')
     cam.connect()
     cam.setParameter('exposureTime',300)
-    cam.setParameter('nFrames', 5)
+    cam.setParameter('nFrame', 5)
 
     cam._displayStreamOfImages()
     cam.disconnect()
@@ -78,6 +78,37 @@ def test_milCamera2():
 
     camera.disconnect()
 
+
+@pytest.mark.GUI
+def test_PFCamera():
+    ''' check if PFCamera works'''
+    from spectralCamera.instrument.camera.pfCamera.pFCamera import PFCamera
+
+    cam = PFCamera(name='pfCamera')
+    cam.connect()
+    cam.setParameter('exposureTime',300)
+    cam.setParameter('nFrame', 5)
+
+    cam._displayStreamOfImages()
+    cam.disconnect()
+
+def test_PFCamera2():
+    ''' check if camera works with viscope gui '''
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+    from viscope.main import viscope
+    from spectralCamera.instrument.camera.pfCamera.pFCamera import PFCamera 
+
+    cam = PFCamera(name='pfCamera')
+    cam.connect()
+    cam.setParameter('exposureTime',300)
+    #cam.setParameter('nFrame', 5)
+    cam.setParameter('threadingNow',True)
+
+    adGui  = AllDeviceGUI(viscope)
+    adGui.setDevice(cam)
+    viscope.run()
+
+    cam.disconnect()
 
 
 
