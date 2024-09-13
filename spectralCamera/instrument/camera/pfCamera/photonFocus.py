@@ -388,9 +388,9 @@ class Photonfocus:
 
             # loop for waiting for a valid image
             while waitForValidImage and pfResult != pf.Error.NONE:
+                time.sleep(0.003)
                 self._releaseLastBuffer()
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
-                time.sleep(0.03)
 
                 #print(pfResult)
                 #print(waitForValidImage)

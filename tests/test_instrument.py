@@ -92,6 +92,7 @@ def test_PFCamera():
     cam._displayStreamOfImages()
     cam.disconnect()
 
+@pytest.mark.GUI
 def test_PFCamera2():
     ''' check if camera works with viscope gui '''
     from viscope.gui.allDeviceGUI import AllDeviceGUI
@@ -109,6 +110,39 @@ def test_PFCamera2():
     viscope.run()
 
     cam.disconnect()
+
+@pytest.mark.GUI
+def test_calibratePFImage():
+    ''' check if calibration of photon focus camera work'''
+    from spectralCamera.instrument.camera.pfCamera.pFCamera import PFCamera 
+    from spectralCamera.algorithm.calibratePFImage import CalibratePFImage
+    from spectralCamera.instrument.sCamera.sCamera import SCamera
+    from viscope.main import viscope
+    from spectralCamera.gui.xywViewerGUI import XYWViewerGui
+    from viscope.gui.allDeviceGUI import AllDeviceGUI    
+
+    camera = PFCamera(name='pfCamera')
+    camera.connect()
+    camera.setParameter('exposureTime',300)
+    camera.setParameter('threadingNow',True)
+
+    sCal = CalibratePFImage()
+
+    sCamera = SCamera(name='spectralPFCamera')
+    sCamera.connect(camera=camera)
+    sCamera.setParameter('calibrationData',sCal)
+    sCamera.setParameter('threadingNow',True)    
+
+    adGui  = AllDeviceGUI(viscope)
+    adGui.setDevice(camera)
+    
+    svGui  = XYWViewerGui(viscope)
+    svGui.setDevice(sCamera)
+
+    viscope.run()
+
+    camera.disconnect()
+    sCamera.disconnect()
 
 
 
