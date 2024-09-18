@@ -3,7 +3,8 @@ interface for photonfocus camera
 '''
 #%% link the library
 import os, sys
-sys.path.append(os.path.join(os.environ['PF_ROOT'],'PFSDK','bin'))
+sys.path.append(os.path.join(os.environ['PF_ROOT'],'PFSDK','bin/Python'))
+os.add_dll_directory(os.path.join(os.environ['PF_ROOT'],'PFSDK','bin'))
 if sys.version_info >= (3,8):
     os.add_dll_directory(os.path.join(os.environ['PF_ROOT'],'DoubleRateSDK','bin'))
 
@@ -38,7 +39,9 @@ class Photonfocus:
         self.pfStream = None
         self.pfBuffer = None
         self.pfBufferReleased = True
-        self.ringSizeBuffer = 2
+        self.ringSizeBuffer = 100
+
+        self.pfImage = pf.PFImage()
 
         # camera type related spectral parameter 
         self.pixelChar = {}
@@ -344,7 +347,8 @@ class Photonfocus:
     def _SetupStream(self,ringSizeBuffer=None):
         #Create stream depending on camera type
         if self.cam_info.GetType() == pf.CameraType.CAMTYPE_GEV:
-            self.pfStream = pf.PFStreamGEV(False, True, False, True)
+            self.pfStream = pf.PFStreamGEV(True, True, False, True)
+            print('camera is  GEV type')
         else:
             self.pfStream = pf.PFStreamU3V()
         
@@ -366,14 +370,15 @@ class Photonfocus:
         #Release frame buffer, otherwise ring buffer will get full
         self.pfStream.ReleaseBuffer(self.pfBuffer)
         self.pfBufferReleased=True
+        #print('buffer released')
             
-    def getLastImage(self,waitForValidImage=True, copyImage=True):
+    def getLastImage(self,waitForValidImage=True, copyImage=False):
         ''' get image from the buffer 
         waitForValidImage = True ... wait till image is retrieved
                         =  False ... return image can be None '''
 
         #pfBuffer = 0
-        pfImage = pf.PFImage()
+        #pfImage = pf.PFImage()
         imageData = None
         pfResult = pf.Error.NONE
 
@@ -381,24 +386,37 @@ class Photonfocus:
 
             if not self.pfBufferReleased:
                 self._releaseLastBuffer()
+            #[pfResult, bufferCount] = self.pfStream.GetBufferCount()
+            #print(f'1. buffer count {bufferCount}')
+            #[pfResult, bufferCount] = self.pfStream.GetBufferCount()
+            #print(f'2. buffer count {bufferCount}')
 
+
+            # GetNextBuffer is waiting for the next image.
+            # IT BLOCKS all other threads!!
+            # therefore in the code is implemented time.sleep
+            # the synchronisation is not ideal, but it works
+            time.sleep(self.exposureTime_um/1e6)
             [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
             self.pfBufferReleased= False
-            #print(pfResult)
+            #[pfResult, bufferCount] = self.pfStream.GetBufferCount()
+            #print(f'3. buffer count {bufferCount}')
+
+
+            #print(f'first getNextBuffer result {pfResult}')
 
             # loop for waiting for a valid image
             while waitForValidImage and pfResult != pf.Error.NONE:
-                time.sleep(0.003)
                 self._releaseLastBuffer()
+                time.sleep(self.exposureTime_um/1e6)
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
-
-                #print(pfResult)
+                print(f'wating for valid image {pfResult}')
                 #print(waitForValidImage)
 
             if pfResult == pf.Error.NONE:
                 #Get image object from buffer
-                self.pfBuffer.GetImage(pfImage)
-                imageData = np.array(pfImage, copy = copyImage)
+                self.pfBuffer.GetImage(self.pfImage)
+                imageData = np.array(self.pfImage, copy = copyImage)
 
             if copyImage:
                 self._releaseLastBuffer()
