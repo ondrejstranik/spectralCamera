@@ -402,7 +402,7 @@ class CalibrateFrom3Images(BaseCalibrate):
         '''
         return self.gridLine.getWYXImage(mySpec)
 
-    def getSpectralImage(self,rawImage,aberrationCorrection=False,order=1):
+    def getSpectralImage(self,rawImage,aberrationCorrection=False,order=1,**kwargs):
         ''' get the spectral image from raw image
         aberrationCorrection == False ... no image aberration applied
         it is just wrapper function

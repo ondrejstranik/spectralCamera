@@ -28,9 +28,9 @@ class CalibratePFImage(BaseCalibrate):
 
 
 
-    def getSpectralImage(self,rawImage,**kwargs):
+    def getSpectralImage(self,rawImage,spectralCorrection=True,**kwargs):
         ''' get the spectral image from raw image'''
-        WYXImage = self.pf.imageDataToSpectralCube(rawImage)
+        WYXImage = self.pf.imageDataToSpectralCube(rawImage,spectralCorrection=spectralCorrection)
         return  WYXImage
 
 

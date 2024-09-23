@@ -23,17 +23,22 @@ class SCameraGUI(BaseGUI):
     def __setWidget(self):
         ''' prepare the gui '''
 
-        @magicgui(correction={"label": "image correction"},
-        dTimeCamera = {"widget_type":"Label"},
-        dTimeSCamera = {"widget_type":"Label"})
-        def sCameraGui(correction=True,dTimeCamera=0, dTimeSCamera=0):
-            if correction is not None:
-                self.device.aberrationCorrection = correction
+        @magicgui(aberrationCorrection={"label": "image correction"},
+                  spectralCorrection={"label": "spectral correction"},
+                  dTimeCamera = {"widget_type":"Label"},
+                  dTimeSCamera = {"widget_type":"Label"})
+        def sCameraGui(aberrationCorrection=True,
+                       spectralCorrection=True,
+                       dTimeCamera=0, 
+                       dTimeSCamera=0):
+            if aberrationCorrection is not None:
+                self.device.aberrationCorrection = aberrationCorrection
+            if spectralCorrection is not None:
+                self.device.spectralCorrection = spectralCorrection
             if dTimeCamera is not None:
                 self.sCameraGui.dTimeCamera.value = dTimeCamera
             if dTimeSCamera is not None:
                 self.sCameraGui.dTimeSCamera.value = dTimeSCamera
-
 
         # add widgets 
         self.sCameraGui = sCameraGui
@@ -45,6 +50,10 @@ class SCameraGUI(BaseGUI):
         # connect the signals
         self.device.worker.yielded.connect(self.guiUpdateTimed)
         self.device.camera.worker.yielded.connect(self.guiUpdateTimed)
+
+        # set value in gui
+        self.sCameraGui.aberrationCorrection.value = self.device.aberrationCorrection
+        self.sCameraGui.spectralCorrection.value = self.device.spectralCorrection
 
     def updateGui(self):
         ''' update the data in gui '''

@@ -419,7 +419,7 @@ class Photonfocus:
         self.darkImage = imAve/nDark
         return self.darkImage
         
-    def imageDataToSpectralCube(self,imageData,darkImage=None):
+    def imageDataToSpectralCube(self,imageData,darkImage=None,spectralCorrection=True):
         ''' convert image to hyper spectral cube '''
 
         if darkImage is not None:
@@ -437,8 +437,9 @@ class Photonfocus:
         im4D = np.swapaxes(np.reshape(np.swapaxes(im3D,0,1),(im3D.shape[1],-1,im3D.shape[2],5)),0,1)
         imxyl = np.reshape(im4D,(im4D.shape[0],im4D.shape[1],-1))
 
-        # carry out the spec
-        imxyw = np.tensordot(imxyl,self.pixelChar['coef_pixels'], axes = (2,0))
+        # spectral unmixing correction
+        if spectralCorrection:
+            imxyw = np.tensordot(imxyl,self.pixelChar['coef_pixels'], axes = (2,0))
 
         imwxy = np.moveaxis(imxyw,-1,0)
 
