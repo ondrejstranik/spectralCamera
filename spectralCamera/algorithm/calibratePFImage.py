@@ -16,21 +16,28 @@ class CalibratePFImage(BaseCalibrate):
         
         super().__init__(**kwargs)
 
-        darkValue = kwargs['darkValue'] if 'darkValue' in kwargs else CalibratePFImage.DEFAULT['darkValue']
+        self.darkValue = kwargs['darkValue'] if 'darkValue' in kwargs else CalibratePFImage.DEFAULT['darkValue']
         self.pf = Photonfocus()
         self.pf.GetCalibrationData()
-        self.pf.darkImage = darkValue
+        self.pf.darkImage = self.darkValue
 
         self.wavelength = self.pf.pixelChar['wv']
 
-        print(f'number of wavelength {len(self.wavelength)}')
-        print(f'wavelength {self.wavelength}')
+        #print(f'number of wavelength {len(self.wavelength)}')
+        #print(f'wavelength {self.wavelength}')
 
 
 
-    def getSpectralImage(self,rawImage,spectralCorrection=True,**kwargs):
+    def getSpectralImage(self,rawImage,spectralCorrection=True,darkValue=None,**kwargs):
         ''' get the spectral image from raw image'''
-        WYXImage = self.pf.imageDataToSpectralCube(rawImage,spectralCorrection=spectralCorrection)
+        
+        if darkValue is not None:
+            self.darkValue = darkValue
+            self.pf.darkImage = self.darkValue
+
+        WYXImage = self.pf.imageDataToSpectralCube(rawImage,
+                                                   spectralCorrection=spectralCorrection)
+
         return  WYXImage
 
 
