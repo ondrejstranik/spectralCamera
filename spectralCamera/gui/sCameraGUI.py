@@ -56,7 +56,7 @@ class SCameraGUI(BaseGUI):
 
         # set value in gui
         self.sCameraGui.aberrationCorrection.value = self.device.aberrationCorrection
-        self.sCameraGui.spectralSmoothing.value = self.device.spectralSmoothing
+        #self.sCameraGui.spectralSmoothing.value = self.device.spectralSmoothing
         if hasattr(self.device.spectraCalibration, 'darkValue'):
             self.sCameraGui.darkValue.value = self.device.spectraCalibration.darkValue
 

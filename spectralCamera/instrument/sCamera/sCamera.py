@@ -19,8 +19,12 @@ class SCamera(BaseProcessor):
     ''' class to control spectral camera'''
     DEFAULT = {'name': 'sCamera',
                'aberrationCorrection': False,
+<<<<<<< Updated upstream
                'spectralCorrection':False,
                'spectraSigma': 0} # sigma for gausian filter in spectral axis
+=======
+               'spectralCorrection':True}
+>>>>>>> Stashed changes
 
     def __init__(self, name=None, **kwargs):
         ''' initialisation '''
