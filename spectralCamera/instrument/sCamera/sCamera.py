@@ -19,7 +19,7 @@ class SCamera(BaseProcessor):
     ''' class to control spectral camera'''
     DEFAULT = {'name': 'sCamera',
                'aberrationCorrection': False,
-               'spectralCorrection':False,
+               'spectralCorrection':True,
                'spectraSigma': 0, # sigma for gaussian filter in spectral axis
                'darkValue': 0} # average value of dark
 
