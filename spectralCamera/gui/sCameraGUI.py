@@ -24,19 +24,19 @@ class SCameraGUI(BaseGUI):
         ''' prepare the gui '''
 
         @magicgui(aberrationCorrection={"label": "image correction"},
-                  spectralSmoothing={"label": "spectral smoothing"},
+                  spectraSigma={"label": "spectral smoothing"},
                   darkValue = {"label": "average image dark value"},
                   dTimeCamera = {"widget_type":"Label"},
                   dTimeSCamera = {"widget_type":"Label"})
         def sCameraGui(aberrationCorrection=True,
-                       spectralSmoothing= 0.0,
+                       spectraSigma= 0.0,
                        darkValue = 0,
                        dTimeCamera=0, 
                        dTimeSCamera=0):
             if aberrationCorrection is not None:
                 self.device.aberrationCorrection = aberrationCorrection
-            self.device.spectralSmoothing = spectralSmoothing
-            self.device.spectraCalibration.darkValue = darkValue
+            self.device.spectraSigma = spectraSigma
+            self.device.darkValue = darkValue
 
             if dTimeCamera is not None:
                 self.sCameraGui.dTimeCamera.value = dTimeCamera
@@ -56,9 +56,8 @@ class SCameraGUI(BaseGUI):
 
         # set value in gui
         self.sCameraGui.aberrationCorrection.value = self.device.aberrationCorrection
-        #self.sCameraGui.spectralSmoothing.value = self.device.spectralSmoothing
-        if hasattr(self.device.spectraCalibration, 'darkValue'):
-            self.sCameraGui.darkValue.value = self.device.spectraCalibration.darkValue
+        self.sCameraGui.spectraSigma.value = self.device.spectraSigma
+        self.sCameraGui.darkValue.value = self.device.darkValue
 
 
     def updateGui(self):

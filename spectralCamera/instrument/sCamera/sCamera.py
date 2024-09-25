@@ -19,12 +19,9 @@ class SCamera(BaseProcessor):
     ''' class to control spectral camera'''
     DEFAULT = {'name': 'sCamera',
                'aberrationCorrection': False,
-<<<<<<< Updated upstream
                'spectralCorrection':False,
-               'spectraSigma': 0} # sigma for gausian filter in spectral axis
-=======
-               'spectralCorrection':True}
->>>>>>> Stashed changes
+               'spectraSigma': 0, # sigma for gaussian filter in spectral axis
+               'darkValue': 0} # average value of dark
 
     def __init__(self, name=None, **kwargs):
         ''' initialisation '''
@@ -42,6 +39,7 @@ class SCamera(BaseProcessor):
         self.aberrationCorrection = SCamera.DEFAULT['aberrationCorrection']
         self.spectralCorrection = SCamera.DEFAULT['spectralCorrection']
         self.spectraSigma = SCamera.DEFAULT['spectraSigma']
+        self.darkValue = SCamera.DEFAULT['darkValue']
         
         self.dTime = 0 # acquisition/processing time
         self.t0 = time.time()
@@ -75,7 +73,9 @@ class SCamera(BaseProcessor):
         
         return self.spectraCalibration.getSpectralImage(imageData,
                 aberrationCorrection = self.aberrationCorrection,
-                spectralCorrection= self.spectralCorrection)
+                spectralCorrection= self.spectralCorrection,
+                spectraSigma= self.spectraSigma,
+                darkValue= self.darkValue)
 
     def getLastSpectralImage(self):
         ''' direct call of the camera image and spectral processing of it '''
