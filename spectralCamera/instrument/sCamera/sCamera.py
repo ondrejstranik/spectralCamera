@@ -19,7 +19,8 @@ class SCamera(BaseProcessor):
     ''' class to control spectral camera'''
     DEFAULT = {'name': 'sCamera',
                'aberrationCorrection': False,
-               'spectralCorrection':False}
+               'spectralCorrection':False,
+               'spectraSigma': 0} # sigma for gausian filter in spectral axis
 
     def __init__(self, name=None, **kwargs):
         ''' initialisation '''
@@ -36,6 +37,8 @@ class SCamera(BaseProcessor):
         self.wavelength = None
         self.aberrationCorrection = SCamera.DEFAULT['aberrationCorrection']
         self.spectralCorrection = SCamera.DEFAULT['spectralCorrection']
+        self.spectraSigma = SCamera.DEFAULT['spectraSigma']
+        
         self.dTime = 0 # acquisition/processing time
         self.t0 = time.time()
 
