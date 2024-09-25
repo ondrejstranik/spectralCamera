@@ -24,26 +24,18 @@ class SCameraGUI(BaseGUI):
         ''' prepare the gui '''
 
         @magicgui(aberrationCorrection={"label": "image correction"},
-                  spectralCorrection={"label": "spectral correction"},
+                  spectralSmoothing={"label": "spectral smoothing"},
                   darkValue = {"label": "average image dark value"},
                   dTimeCamera = {"widget_type":"Label"},
                   dTimeSCamera = {"widget_type":"Label"})
         def sCameraGui(aberrationCorrection=True,
-                       spectralCorrection=True,
+                       spectralSmoothing= 0.0,
                        darkValue = 0,
                        dTimeCamera=0, 
                        dTimeSCamera=0):
             if aberrationCorrection is not None:
                 self.device.aberrationCorrection = aberrationCorrection
-            if spectralCorrection is not None:
-                self.device.spectralCorrection = spectralCorrection
-                # TODO: TEST!!!! this is only for photon focus camera
-                # correct it for all camera and general case of photonfocus
-                if not spectralCorrection:
-                    self.device.wavelength = np.linspace(600,875,25)
-                else:
-                    self.device.wavelength = self.device.spectraCalibration.getWavelength()
-
+            self.device.spectralSmoothing = spectralSmoothing
             self.device.spectraCalibration.darkValue = darkValue
 
             if dTimeCamera is not None:
@@ -64,7 +56,7 @@ class SCameraGUI(BaseGUI):
 
         # set value in gui
         self.sCameraGui.aberrationCorrection.value = self.device.aberrationCorrection
-        self.sCameraGui.spectralCorrection.value = self.device.spectralCorrection
+        self.sCameraGui.spectralSmoothing.value = self.device.spectralSmoothing
         if hasattr(self.device.spectraCalibration, 'darkValue'):
             self.sCameraGui.darkValue.value = self.device.spectraCalibration.darkValue
 
