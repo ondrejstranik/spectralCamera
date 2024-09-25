@@ -94,6 +94,7 @@ class SCamera(BaseProcessor):
             self.camera = value
             self.flagToProcess = self.camera.flagLoop
 
+
     def getParameter(self,name):
         ''' get parameter of the camera '''
         _value = super().getParameter(name)

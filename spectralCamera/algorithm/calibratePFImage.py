@@ -5,6 +5,8 @@ class to calibrate filter based Images
 import numpy as np
 from spectralCamera.algorithm.baseCalibrate import BaseCalibrate
 from spectralCamera.instrument.camera.pfCamera.photonFocus import Photonfocus
+from scipy.ndimage import gaussian_filter
+
 
 class CalibratePFImage(BaseCalibrate):
     ''' main class to calibrate photon focus multispectral based images '''
@@ -18,6 +20,7 @@ class CalibratePFImage(BaseCalibrate):
 
         self.darkValue = kwargs['darkValue'] if 'darkValue' in kwargs else CalibratePFImage.DEFAULT['darkValue']
         self.pf = Photonfocus()
+        #self.pf.GetPlainCalibrationData()
         self.pf.GetCalibrationData()
         self.pf.darkImage = self.darkValue
 
@@ -38,7 +41,13 @@ class CalibratePFImage(BaseCalibrate):
         WYXImage = self.pf.imageDataToSpectralCube(rawImage,
                                                    spectralCorrection=spectralCorrection)
 
-        return  WYXImage
+        # TODO: temporary!! smoothing
+        # remove afterwards 
+        smoothWYXImage = gaussian_filter(WYXImage, sigma=2, axes=0)
+
+        return smoothWYXImage
+
+        #return  WYXImage
 
 
 if __name__ == "__main__":

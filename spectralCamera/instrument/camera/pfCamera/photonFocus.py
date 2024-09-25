@@ -39,7 +39,7 @@ class Photonfocus:
         self.pfStream = None
         self.pfBuffer = None
         self.pfBufferReleased = True
-        self.ringSizeBuffer = 100
+        self.ringSizeBuffer = 2
 
         self.pfImage = pf.PFImage()
 
@@ -458,6 +458,8 @@ class Photonfocus:
         # spectral unmixing correction
         if spectralCorrection:
             imxyw = np.tensordot(imxyl,self.pixelChar['coef_pixels'], axes = (2,0))
+        else:
+            imxyw = imxyl
 
         imwxy = np.moveaxis(imxyw,-1,0)
 

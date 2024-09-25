@@ -37,6 +37,13 @@ class SCameraGUI(BaseGUI):
                 self.device.aberrationCorrection = aberrationCorrection
             if spectralCorrection is not None:
                 self.device.spectralCorrection = spectralCorrection
+                # TODO: TEST!!!! this is only for photon focus camera
+                # correct it for all camera and general case of photonfocus
+                if not spectralCorrection:
+                    self.device.wavelength = np.linspace(600,875,25)
+                else:
+                    self.device.wavelength = self.device.spectraCalibration.getWavelength()
+
             self.device.spectraCalibration.darkValue = darkValue
 
             if dTimeCamera is not None:

@@ -65,7 +65,7 @@ class PFCamera(BaseCamera):
             if ii==0: _, myframe= self.cam.getLastImage()
             else:
                 _, temporary_frame = self.cam.getLastImage()
-                myframe = myframe + temporary_frame
+                myframe = myframe + temporary_frame*1.0
 
         self.rawImage = myframe/self.nFrame
         return self.rawImage
