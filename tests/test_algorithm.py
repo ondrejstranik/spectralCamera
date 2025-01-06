@@ -42,3 +42,26 @@ def test_basisVectors():
     plt.scatter(*lattice_basis_vectors(com, 1000).T, c = 'red')
     plt.scatter(*true.T, c = 'blue')
     np.median(v1[0])
+
+@pytest.mark.GUI
+def test_fileSIVideo():
+    ''' check if video of spectral images are loaded'''
+
+    from spectralCamera.algorithm.fileSIVideo import FileSIVideo
+    from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
+
+
+    # adjust to your data folder
+    folder = r'D:\LPI\24-9-16 pfcamera\video'
+    print(f'data folder = {folder}')
+
+    fV = FileSIVideo(folder=folder)
+    allImage,wavelength,time = fV.loadAllImage()
+
+    print(f'time in ns = {time}')
+    viewer = XYWViewer(allImage,wavelength)
+    viewer.run()
+
+
+
+

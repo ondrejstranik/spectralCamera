@@ -288,8 +288,7 @@ class XYWViewer():
         napari.run()
 
 if __name__ == "__main__":
-    import pytest
-    #retcode = pytest.main(['tests/test_spectralViewer.py::test_XYWViewer'])
+    pass
 
         
 

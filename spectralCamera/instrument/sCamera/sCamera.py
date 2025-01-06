@@ -1,7 +1,5 @@
 """
-spectral camera - Data Processor 
-
-Created on Mon Nov 15 12:08:51 2021
+class SCamera
 
 @author: ostranik
 """
@@ -13,10 +11,13 @@ import numpy as np
 from viscope.instrument.base.baseProcessor import BaseProcessor
 from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
 from spectralCamera.algorithm.calibrateLoader import CalibrateLoader
-
+from spectralCamera.algorithm.fileSIVideo import FileSIVideo
 
 class SCamera(BaseProcessor):
-    ''' class to control spectral camera'''
+    ''' class to control spectral camera
+    process raw data from camera to create spectral image,
+    is able to save all processed spectral images
+    '''
     DEFAULT = {'name': 'sCamera',
                'aberrationCorrection': False,
                'spectralCorrection':True,
@@ -41,12 +42,12 @@ class SCamera(BaseProcessor):
         self.spectraSigma = SCamera.DEFAULT['spectraSigma']
         self.darkValue = SCamera.DEFAULT['darkValue']
         
-        self.dTime = 0 # acquisition/processing time
-        self.t0 = time.time()
+        self.dTime = 0 # acquisition/processing time between two spectral images
+        self.t0 = time.time() # time of acquisition of the last spectral image
 
         # parameters for saving of images
         self.flagSaving = False
-        self.savingFolder = None
+        self.fileSIVideo = None
 
         # get default calibration data
         self.setCalibrationData()
@@ -101,7 +102,6 @@ class SCamera(BaseProcessor):
             self.camera = value
             self.flagToProcess = self.camera.flagLoop
 
-
     def getParameter(self,name):
         ''' get parameter of the camera '''
         _value = super().getParameter(name)
@@ -116,6 +116,20 @@ class SCamera(BaseProcessor):
         if name== 'calibrationData':
             return self.spectraCalibration
 
+    def isRecording(self):
+        ''' check if saving video sequence of images is activated'''
+        return self.flagSaving
+
+    def startRecording(self,folder):
+        ''' start recording all acquired spectral images'''
+        self.fileSIVideo = FileSIVideo(folder=folder)
+        self.fileSIVideo.saveWavelength(self.wavelength) 
+        self.flagSaving = True
+
+    def stopRecording(self,folder):
+        ''' stop recording the acquired spectral images'''
+        self.flagSaving = False
+
     def processData(self):
         ''' process newly arrived data '''
         #print(f"processing data from {self.DEFAULT['name']}")
@@ -123,8 +137,8 @@ class SCamera(BaseProcessor):
         self.dTime = time.time() -self.t0
         self.t0 = self.t0 + self.dTime
         if self.flagSaving:
-            np.save(self.savingFolder+ '/'+ f'time_{time.time_ns()}',self.sImage)
-        
+            self.fileSIVideo.saveImage(self.sImage)
+
         return self.sImage
 
 
