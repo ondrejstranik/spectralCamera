@@ -30,13 +30,15 @@ class SaveSIVideoGUI(BaseGUI):
         )
         def saveVideoGui(filePath= Path(self.viscope.dataFolder)):
 
-            if self.device.flagSaving is False:
-                self.device.savingFolder = str(filePath)
-                np.save(str(filePath / 'wavelength'),self.device.wavelength)            
-                self.device.flagSaving = True
+            if self.device.isRecording() is False:
+                self.device.startRecording(str(filePath))
+                #self.device.savingFolder = str(filePath)
+                #np.save(str(filePath / 'wavelength'),self.device.wavelength)            
+                #self.device.flagSaving = True
                 saveVideoGui.call_button.text = 'Stop Recording'
             else:
-                self.device.flagSaving = False
+                self.device.stopRecording()
+                #self.device.flagSaving = False
                 saveVideoGui.call_button.text = 'Start Recording'
 
         # add widgets 

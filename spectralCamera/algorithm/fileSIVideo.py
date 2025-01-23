@@ -25,11 +25,11 @@ class FileSIVideo:
         self.folder = '' if folder is None else folder
 
     def setFolder(self,folder):
-        self.folder = folder
+        self.folder = str(folder)
 
     def saveWavelength(self,wavelength):
         ''' save wavelength'''
-        np.save(str(self.folder) / self.DEFAULT['nameSet']['wavelength'],wavelength)
+        np.save(str(self.folder) +'/' +  self.DEFAULT['nameSet']['wavelength'],wavelength)
 
     def loadWavelength(self,folder=None):
         ''' loading wavelength'''
@@ -45,9 +45,8 @@ class FileSIVideo:
     def saveImage(self,sImage,timeTag=None):
         ''' save image in the folder with time tag
         the default timeTag is nanoseconds from the beginning of epoch time'''
-        
         timeTag = time.time_ns() if timeTag is None else timeTag
-        np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(),sImage)
+        np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
 
     def loadImage(self,fileName, folder=None):
         ''' loading the spectral image'''

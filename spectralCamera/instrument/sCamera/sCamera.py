@@ -126,7 +126,7 @@ class SCamera(BaseProcessor):
         self.fileSIVideo.saveWavelength(self.wavelength) 
         self.flagSaving = True
 
-    def stopRecording(self,folder):
+    def stopRecording(self):
         ''' stop recording the acquired spectral images'''
         self.flagSaving = False
 
@@ -136,8 +136,10 @@ class SCamera(BaseProcessor):
         self.sImage = self.imageDataToSpectralCube(self.camera.rawImage)
         self.dTime = time.time() -self.t0
         self.t0 = self.t0 + self.dTime
+        
         if self.flagSaving:
             self.fileSIVideo.saveImage(self.sImage)
+
 
         return self.sImage
 
