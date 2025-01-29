@@ -19,7 +19,7 @@ setuptools.setup(
         'napari',
         'opencv-python',
         'pyqtgraph',
-        'scikit-learn',nnm
+        'scikit-learn',
         'lxml_html_clean'
         ],
     classifiers=[

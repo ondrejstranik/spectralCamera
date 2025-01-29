@@ -64,7 +64,7 @@ def test_simpleSpectralMicroscope2():
 @pytest.mark.GUI
 def test_simpleSpectralMicroscope3():
     ''' reference test to test2 but with real webcam'''
-    from viscope.main import Viscope
+    from viscope.main import viscope
     from viscope.gui.allDeviceGUI import AllDeviceGUI
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
 
@@ -79,7 +79,6 @@ def test_simpleSpectralMicroscope3():
     sCamera = scs.sCamera
 
     # add gui
-    viscope = Viscope()
     viewer  = AllDeviceGUI(viscope)
     viewer.setDevice(camera)
     newGUI  = XYWViewerGui(viscope)
@@ -97,7 +96,7 @@ def test_multiSpectralMicroscope():
     #from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualFilterCamera
     from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualIFCamera
 
-    from viscope.main import Viscope
+    from viscope.main import viscope
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
     from viscope.gui.allDeviceGUI import AllDeviceGUI
 
@@ -122,7 +121,6 @@ def test_multiSpectralMicroscope():
     vM.connect()
 
     # main event loop
-    viscope = Viscope()
     newGUI  = XYWViewerGui(viscope)
     newGUI.setDevice(sCamera)
 
