@@ -4,18 +4,24 @@ class for viewing spots's plasmon resonance
 import napari
 import pyqtgraph as pg
 from PyQt5.QtGui import QColor, QPen
-from qtpy.QtWidgets import QLabel, QSizePolicy
+from qtpy.QtWidgets import QLabel, QSizePolicy, QWidget
 from qtpy.QtCore import Qt
+from qtpy.QtCore import Signal
+
+
 
 import numpy as np
 
 
-class XYWViewer():
+class XYWViewer(QWidget):
     ''' main class for viewing spectral images'''
+    sigUpdateData = Signal()
 
     def __init__(self,xywImage=None, wavelength= None, **kwargs):
         ''' initialise the class '''
     
+        super().__init__()
+
         # data parameter
         if xywImage is not None:
             self.xywImage=xywImage  # spectral 3D image
@@ -71,6 +77,7 @@ class XYWViewer():
         # add point layer
         self.pointLayer = self.viewer.add_points(name='points', size=5, face_color='red')
 
+        
   
         # set some parameters of napari
         #self.spectraLayer._keep_auto_contrast = True
@@ -115,6 +122,9 @@ class XYWViewer():
        # connect changes in data in this layer
         self.pointLayer.events.data.connect(self.updateSpectra)
         self.pointLayer._face.events.current_color.connect(self.colorChange)
+        self.pointLayer._face.events.current_color.connect(lambda: self.sigUpdateData.emit())
+        self.pointLayer.events.data.connect(lambda: self.sigUpdateData.emit())
+
 
     def calculateSpectra(self):
         ''' calculate the spectra at the given points'''
