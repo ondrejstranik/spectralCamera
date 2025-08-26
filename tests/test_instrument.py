@@ -1,6 +1,25 @@
 ''' camera unitest '''
 
 import pytest
+import numpy as np
+
+
+def test_webCamera_2():
+    ''' check if web camera work'''
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
+
+    cam = WebCamera(name='WebCamera',filterType='RGGB')
+    cam.connect()
+    cam.setParameter('exposureTime',300)
+    cam.setParameter('nFrame', 5)
+
+    myImage = cam.getLastImage()
+
+    assert np.sum(myImage) > 0
+    cam.disconnect()
+
+
+
 
 @pytest.mark.GUI
 def test_webCamera():
