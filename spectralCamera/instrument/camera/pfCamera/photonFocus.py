@@ -9,7 +9,7 @@ if sys.version_info >= (3,8):
     os.add_dll_directory(os.path.join(os.environ['PF_ROOT'],'DoubleRateSDK','bin'))
 
 import PFPyCameraLib as pf
-
+from PFPyCameraLib import PixelType
 import numpy as np
 import time
 
@@ -41,7 +41,8 @@ class Photonfocus:
         self.pfBufferReleased = True
         self.ringSizeBuffer = 2
 
-        self.pfImage = pf.PFImage()
+        self.pfImage = pf.PFImage() #(16) #Mono12Packed
+        self.pfImageUnpacked = pf.PFImage() #(14) #Mono12
 
         # camera type related spectral parameter 
         self.pixelChar = {}
@@ -59,7 +60,8 @@ class Photonfocus:
 
         # default parameters        
         self.cameraIdx = 0
-        self.pixelFormat = "Mono8"
+        #self.pixelFormat = "Mono8"
+        self.pixelFormat = "Mono12Packed"
         self.exposureTime_um = 100000  
         self.height = None
         self.width = None
@@ -396,7 +398,9 @@ class Photonfocus:
             # IT BLOCKS all other threads!!
             # therefore in the code is implemented time.sleep
             # the synchronisation is not ideal, but it works
-            time.sleep(self.exposureTime_um/1e6)
+            #!!!!!!!!!!!!!!!time.sleep(self.exposureTime_um/1e6)
+            time.sleep(self.exposureTime_um/1e6/10)
+
             [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
             self.pfBufferReleased= False
             #[pfResult, bufferCount] = self.pfStream.GetBufferCount()
@@ -408,20 +412,78 @@ class Photonfocus:
             # loop for waiting for a valid image
             while waitForValidImage and pfResult != pf.Error.NONE:
                 self._releaseLastBuffer()
-                time.sleep(self.exposureTime_um/1e6)
+                time.sleep(self.exposureTime_um/1e6/10)
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
-                print(f'wating for valid image {pfResult}')
+                print(f'waiting for valid image {pfResult}')
                 #print(waitForValidImage)
 
             if pfResult == pf.Error.NONE:
                 #Get image object from buffer
                 self.pfBuffer.GetImage(self.pfImage)
-                imageData = np.array(self.pfImage, copy = copyImage)
+                # in case of packed images
+                self.pfImage.Unpack(
+                                   dest_image= self.pfImageUnpacked)
+                
+                #imageData = np.array(self.pfImage, copy = copyImage)
+                imageData = np.array(self.pfImageUnpacked, copy = copyImage)
+
 
             if copyImage:
                 self._releaseLastBuffer()
  
         return (pfResult, imageData)
+
+    def getLastImageN(self,waitForValidImage=True, copyImage=False,N=1):
+        ''' get image from the buffer 
+        waitForValidImage = True ... wait till image is retrieved
+                        =  False ... return image can be None 
+        N ... number of images'''
+
+        #pfBuffer = 0
+        #pfImage = pf.PFImage()
+        imageData = None
+        pfResult = pf.Error.NONE
+
+        if self.pfStream:
+
+            print(f'AcquisitionFrameCount {self.pfStream.GetAcquisitionFrameCount()}')
+            print(f'GetBufferCount {self.pfStream.GetBufferCount()}')
+
+            if not self.pfBufferReleased:
+                self._releaseLastBuffer()
+
+            time.sleep(self.exposureTime_um/1e6)
+            [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
+            self.pfBufferReleased= False
+
+            bufferCount = self.pfBuffer.GetFrameCounter()
+            
+            print(f'0. buffer count {bufferCount}')
+            for ii in range(N):
+
+                #Get image object from buffer
+                self.pfBuffer.GetImage(self.pfImage)
+                print('got new image')
+                if ii==0:
+                    imageData = 1*np.array(self.pfImage, copy = False)
+                else:
+                    imageData = imageData + np.array(self.pfImage, copy = False)
+
+                bufferCount = self.pfBuffer.GetFrameCounter()
+                print(f'ii = {ii}')
+                print(f' next buffer count {bufferCount}')
+                while bufferCount < ii:
+                    time.sleep(self.exposureTime_um/1e6/3)
+                    bufferCount = self.pfBuffer.GetFrameCounter()
+                    print(f' waiting buffer count {bufferCount}')
+
+
+        imageData = imageData/N
+
+        return (pfResult, imageData)
+
+
+
 
     def getDarkImage(self,nDark = 1):
         ''' get the dark image, averaged over nDark Images'''
@@ -641,14 +703,19 @@ class Photonfocus:
 
         imageSize = self.height * self.width
 
-        print("\n\n\nPress any key to stop capturing")
-        print("\033[1A\033[1A\033[1A", end="")
+        #print("\n\n\nPress any key to stop capturing")
+        #print("\033[1A\033[1A\033[1A", end="")
 
         #Loop over stream frames
         while not msvcrt.kbhit():
             
-            (pfResult, imageData) = self.getLastImage(waitForValidImage=False)
-            
+        #'(pfResult, imageData) = self.getLastImageN(
+        #        waitForValidImage=False, N= self.ringSizeBuffer)
+
+            (pfResult, imageData) = self.getLastImage(
+                waitForValidImage=False)
+
+
             if pfResult == pf.Error.NONE:
 
                 resizedImage = cv.resize(imageData, displaySize)
@@ -667,6 +734,9 @@ class Photonfocus:
 
     def StartAcquisition(self):
         #Start grabbing images into stream
+
+        self.pfImage = pf.PFImage(PixelType(16),self.width,self.height) #(16) #Mono12Packed
+        self.pfImageUnpacked = pf.PFImage(PixelType(14),self.width,self.height) #(14) #Mono12
 
         pfResult = self.pfCam.Grab()
         if pfResult != pf.Error.NONE:

@@ -37,7 +37,8 @@ class PFCamera(BaseCamera):
 
         self.cam = Photonfocus()
         self.cam.PrepareCamera(cameraIdx=self.cameraIdx)
-        self.cam.SetParameter("PixelFormat", "Mono12")
+        #self.cam.SetParameter("PixelFormat", "Mono12")
+        #self.cam.SetParameter("PixelFormat", "Mono12Packed")
 
         self.setParameter('exposureTime',self.exposureTime)
 
@@ -62,9 +63,9 @@ class PFCamera(BaseCamera):
     def getLastImage(self):
         myframe = None
         for ii in range(self.nFrame):
-            if ii==0: _, myframe= self.cam.getLastImage()
+            if ii==0: _, myframe= self.cam.getLastImage(copyImage=True)
             else:
-                _, temporary_frame = self.cam.getLastImage()
+                _, temporary_frame = self.cam.getLastImage(copyImage=True)
                 myframe = myframe + temporary_frame*1.0
 
         self.rawImage = myframe/self.nFrame
@@ -84,14 +85,6 @@ class PFCamera(BaseCamera):
 #%%
 
 if __name__ == '__main__':
-    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
-
-    cam = WebCamera(name='WebCamera',filterType='RGGB')
-    cam.connect()
-    cam.setParameter('exposureTime',300)
-    cam.setParameter('nFrames', 5)
-
-    cam._displayStreamOfImages()
-    cam.disconnect()
+    pass
 
 

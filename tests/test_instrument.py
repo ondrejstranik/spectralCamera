@@ -104,7 +104,7 @@ def test_PFCamera():
 
     cam = PFCamera(name='pfCamera')
     cam.connect()
-    cam.setParameter('exposureTime',300)
+    cam.setParameter('exposureTime',3)
     cam.setParameter('nFrame', 5)
 
     cam._displayStreamOfImages()
@@ -119,7 +119,7 @@ def test_PFCamera2():
 
     cam = PFCamera(name='pfCamera')
     cam.connect()
-    cam.setParameter('exposureTime',300)
+    cam.setParameter('exposureTime',3)
     #cam.setParameter('nFrame', 5)
     cam.setParameter('threadingNow',True)
 
@@ -128,6 +128,23 @@ def test_PFCamera2():
     viscope.run()
 
     cam.disconnect()
+
+
+def test_PFCamera3():
+    ''' check if photoFocus camera interface works'''
+    from spectralCamera.instrument.camera.pfCamera.photonFocus import Photonfocus
+    from spectralCamera.instrument.camera.pfCamera.photonFocus import PromptEnterAndExit
+    pfCam = Photonfocus()
+    pfCam.ringSizeBuffer = 30
+    pfCam.PrepareCamera()
+    pfCam.SetParameter("PixelFormat", "Mono12Packed")
+    pfCam.SetParameter("ExposureTime", 1000)
+
+    pfCam.GetCalibrationData()
+
+    pfCam.StartAcquisition()
+    pfCam.DisplayStreamOfImages()
+    PromptEnterAndExit()
 
 @pytest.mark.GUI
 def test_calibratePFImage():
