@@ -1,19 +1,20 @@
 '''
 class for viewing spots's plasmon resonance
 '''
-import napari
 import pyqtgraph as pg
 from PyQt5.QtGui import QColor, QPen
 from qtpy.QtWidgets import QLabel, QSizePolicy, QWidget
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
+from viscope.gui.napariViewer.napariViewer import NapariViewer
+from qtpy.QtCore import QObject
 
-
+import napari
 
 import numpy as np
 
 
-class XYWViewer(QWidget):
+class XYWViewer(QObject):
     ''' main class for viewing spectral images'''
     sigUpdateData = Signal()
 
@@ -43,9 +44,9 @@ class XYWViewer(QWidget):
 
         # napari
         if 'show' in kwargs:
-            self.viewer = napari.Viewer(show=kwargs['show'])
+            self.viewer = NapariViewer(show=kwargs['show'])
         else:
-            self.viewer = napari.Viewer()
+            self.viewer = NapariViewer()
 
         self.spectraLayer = None
         self.pointLayer = None
