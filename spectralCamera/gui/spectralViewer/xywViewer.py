@@ -13,6 +13,8 @@ import napari
 
 import numpy as np
 
+pg.setConfigOptions(useOpenGL=True,antialias=False)
+
 
 class XYWViewer(QObject):
     ''' main class for viewing spectral images'''
@@ -86,6 +88,8 @@ class XYWViewer(QObject):
 
         # add widget spectraGraph
         self.spectraGraph = pg.plot()
+        self.spectraGraph.disableAutoRange() # to speed up drawing
+
         self.spectraGraph.setTitle(f'Spectra')
         styles = {'color':'r', 'font-size':'20px'}
         self.spectraGraph.setLabel('left', 'Intensity', units='a.u.')
@@ -192,6 +196,9 @@ class XYWViewer(QObject):
 
                 mypen.setWidth(0)
                 lineplot = self.spectraGraph.plot(pen= mypen)
+                # speeding up drawing
+                self._speedUpLineDrawing(lineplot)
+
                 lineplot.setData(self.wavelength, self.pointSpectra[ii])
                 self.lineplotList.append(lineplot)
         except:
@@ -293,6 +300,13 @@ class XYWViewer(QObject):
         if len(wavelength)!= self.xywImage.shape[0]:
             print('number of wavelength is not equal to image spectral channels')
         self.updateSpectraHistogramTitle()
+
+    def _speedUpLineDrawing(self,line):
+        ''' set parameter of a line in a pyqtplot so that it is quicker'''
+        line.setDownsampling(auto=True)
+        line.setClipToView(True)
+        line.setSkipFiniteCheck(True)
+        return line
 
     def run(self):
         ''' start napari engine '''
