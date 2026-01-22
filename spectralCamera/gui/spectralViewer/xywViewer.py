@@ -87,14 +87,28 @@ class XYWViewer(QObject):
         self.viewer.layers.selection.active = self.spectraLayer
 
         # add widget spectraGraph
-        self.spectraGraph = pg.plot()
-        self.spectraGraph.disableAutoRange() # to speed up drawing
+        #self.spectraGraph = pg.plot()
+        self.spectraGraph = pg.PlotWidget()
+        # speed up drawing
+        self.spectraGraph.disableAutoRange()
 
         self.spectraGraph.setTitle(f'Spectra')
         styles = {'color':'r', 'font-size':'20px'}
         self.spectraGraph.setLabel('left', 'Intensity', units='a.u.')
         self.spectraGraph.setLabel('bottom', 'Wavelength ', units= 'nm')
         dw = self.viewer.window.add_dock_widget(self.spectraGraph, name = 'spectra')
+        # register the graph in menu
+        menuBar = self.viewer.window._qt_window.menuBar()
+        # ---- Find Window menu ----
+        window_menu = None
+        for action in menuBar.actions():
+            print(action.text().replace("&", ""))
+            if action.text().replace("&", "") == "Window":
+                window_menu = action.menu()
+                break
+        if window_menu is not None:
+            window_menu.addAction(dw.toggleViewAction())
+
         #dw.setMaximumHeight(window_height)
         #dw.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         # tabify the widget
@@ -117,6 +131,9 @@ class XYWViewer(QObject):
         self.viewer.window._qt_window.tabifyDockWidget(self.dockWidgetData,dw)
         self.dockWidgetData = dw
         self.viewer.window._qt_window.resizeDocks([dw], [500], Qt.Vertical)
+        # register the graph in menu
+        if window_menu is not None:
+            window_menu.addAction(dw.toggleViewAction())
 
         self.calculateSpectraHistogram()
         self.drawSpectraHistogram()
@@ -185,16 +202,18 @@ class XYWViewer(QObject):
         self.spectraGraph.clear()
         self.lineplotList = []
 
+        mypen = QPen()
+        #mypen.setColor(QColor("White"))
+        mypen.setWidth(0)
+
         try:
             # pointSpectra
             for ii in np.arange(len(self.pointSpectra)):
-                mypen = QPen(QColor.fromRgbF(*list(
-                    self.pointLayer.face_color[ii])))
                 #mypen = QPen(QColor.fromRgbF(*list(
-                #    self.pointLayer._face.colors[ii])))
+                #    self.pointLayer.face_color[ii])))
+                mypen.setColor(QColor.fromRgbF(*list(
+                    self.pointLayer.face_color[ii])))
 
-
-                mypen.setWidth(0)
                 lineplot = self.spectraGraph.plot(pen= mypen)
                 # speeding up drawing
                 self._speedUpLineDrawing(lineplot)
@@ -208,13 +227,19 @@ class XYWViewer(QObject):
         ''' update the lines in the spectra graph '''
 
         myPoints = self.pointLayer.data
+
+        mypen = QPen()
+        #mypen.setColor(QColor("White"))
+        mypen.setWidth(0)
+
         try:
             # pointSpectra
             for ii in np.arange(len(self.pointSpectra)):
                 myline = self.lineplotList[ii]
-                mypen = QPen(QColor.fromRgbF(*list(
-                    self.pointLayer.face_color[ii])))
-                mypen.setWidth(0)
+                mypen.setColor(QColor.fromRgbF(*list(
+                    self.pointLayer.face_color[ii])))                
+                #mypen = QPen(QColor.fromRgbF(*list(
+                #    self.pointLayer.face_color[ii])))
                 myline.setData(self.wavelength,self.pointSpectra[ii], pen = mypen)
         except:
             print('error occured in update_spectraGraph - points')
