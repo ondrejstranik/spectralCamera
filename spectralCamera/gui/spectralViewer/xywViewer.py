@@ -18,6 +18,9 @@ pg.setConfigOptions(useOpenGL=True,antialias=False)
 
 class XYWViewer(QObject):
     ''' main class for viewing spectral images'''
+    DEFAULT = {'nameGUI':'XYWViewer',
+               'maxNLine': 200} # maxNLine ... max number of line plotted in the graph
+
     sigUpdateData = Signal()
 
     def __init__(self,xywImage=None, wavelength= None, **kwargs):
@@ -59,9 +62,12 @@ class XYWViewer(QObject):
         if not hasattr(self, 'dockWidgetData'):
             self.dockWidgetData = None 
 
-
+        # spectra widget
         self.spectraGraph = None
         self.lineplotList = []
+        self.maxNLine = XYWViewer.DEFAULT['maxNLine']
+        
+        # histogram widget
         self.spectraHistogram = None
         self.spectraBarGraph = None
 
@@ -87,22 +93,25 @@ class XYWViewer(QObject):
         self.viewer.layers.selection.active = self.spectraLayer
 
         # add widget spectraGraph
-        #self.spectraGraph = pg.plot()
         self.spectraGraph = pg.PlotWidget()
         # speed up drawing
-        self.spectraGraph.disableAutoRange()
-
+        #self.spectraGraph.disableAutoRange()
         self.spectraGraph.setTitle(f'Spectra')
         styles = {'color':'r', 'font-size':'20px'}
         self.spectraGraph.setLabel('left', 'Intensity', units='a.u.')
         self.spectraGraph.setLabel('bottom', 'Wavelength ', units= 'nm')
         dw = self.viewer.window.add_dock_widget(self.spectraGraph, name = 'spectra')
+        # pre allocate lines for the graph
+        for ii in range(self.maxNLine):
+            self.lineplotList.append(self.spectraGraph.plot())
+            self.lineplotList[-1].hide()
+            self._speedUpLineDrawing(self.lineplotList[-1])
+
         # register the graph in menu
         menuBar = self.viewer.window._qt_window.menuBar()
         # ---- Find Window menu ----
         window_menu = None
         for action in menuBar.actions():
-            print(action.text().replace("&", ""))
             if action.text().replace("&", "") == "Window":
                 window_menu = action.menu()
                 break
@@ -118,7 +127,7 @@ class XYWViewer(QObject):
         self.viewer.window._qt_window.resizeDocks([dw], [500], Qt.Vertical)
 
         # add spectra histogram widget
-        self.spectraHistogram = pg.plot()
+        self.spectraHistogram = pg.PlotWidget()
         self.spectraHistogram.setTitle(f'Spectra Histogram')
         styles = {'color':'r', 'font-size':'20px'}
         self.spectraHistogram.setLabel('left', '#', units='a.u.')
@@ -197,52 +206,40 @@ class XYWViewer(QObject):
 
 
     def drawSpectraGraph(self):
-        ''' draw all new lines in the spectraGraph '''
-        # remove all lines
-        self.spectraGraph.clear()
-        self.lineplotList = []
+        ''' draw all lines in the spectraGraph '''
 
+        # if there is no pointSpectra then do not continue
+        try:
+            nSig = len(self.pointSpectra)
+        except:
+            return
+    
+        # define pen object
         mypen = QPen()
-        #mypen.setColor(QColor("White"))
         mypen.setWidth(0)
 
-        try:
-            # pointSpectra
-            for ii in np.arange(len(self.pointSpectra)):
-                #mypen = QPen(QColor.fromRgbF(*list(
-                #    self.pointLayer.face_color[ii])))
+        # pointSpectra
+        for ii in np.arange(nSig):
+            try:
                 mypen.setColor(QColor.fromRgbF(*list(
                     self.pointLayer.face_color[ii])))
+            except:
+                pass
 
-                lineplot = self.spectraGraph.plot(pen= mypen)
-                # speeding up drawing
-                self._speedUpLineDrawing(lineplot)
+            try:
+                self.lineplotList.setData(self.wavelength, self.pointSpectra[ii])
+                self.lineplotList[ii].show()
+            except:
+                print('error occurred in drawSpectraGraph - pointSpectra')
+                
+        # hide extra lines
+        for ii in np.arange(self.maxNLine - nSig):
+            self.lineplotList[ii+nSig].hide()
 
-                lineplot.setData(self.wavelength, self.pointSpectra[ii])
-                self.lineplotList.append(lineplot)
-        except:
-            print('error occurred in drawSpectraGraph - pointSpectra')
 
     def updateSpectraGraph(self):
-        ''' update the lines in the spectra graph '''
-
-        myPoints = self.pointLayer.data
-
-        mypen = QPen()
-        #mypen.setColor(QColor("White"))
-        mypen.setWidth(0)
-
-        try:
-            # pointSpectra
-            for ii in np.arange(len(self.pointSpectra)):
-                myline = self.lineplotList[ii]
-                mypen.setColor(QColor.fromRgbF(*list(
-                    self.pointLayer.face_color[ii])))                
-                #mypen = QPen(QColor.fromRgbF(*list(
-                #    self.pointLayer.face_color[ii])))
-                myline.setData(self.wavelength,self.pointSpectra[ii], pen = mypen)
-        except:
-            print('error occured in update_spectraGraph - points')
+        ''' only for back compatibility only -  use instead drawSpectraGraph '''
+        self.drawSpectraGraph()
 
     def updateSpectra(self):
         ''' update spectra after the data were changed '''
