@@ -43,13 +43,13 @@ class SViewer(QObject):
 
         # calculated parameters
         self.spotSpectra = SpotSpectraSimple(self.xywImage)
+        self.pointSpectra = []
 
         # add napari
         if 'show' in kwargs:
             self.viewer = NapariViewer(show=kwargs['show'])
         else:
             self.viewer = NapariViewer()
-
         self.spectraLayer = None
         self.pointLayer = None
 
@@ -136,6 +136,7 @@ class SViewer(QObject):
 
     def calculateSpectra(self):
         ''' calculate the spectra at the given points'''
+        print('recalculating mask')
         self.spotSpectra.setSpot(self.pointLayer.data)
         self.pointSpectra = self.spotSpectra.getSpectra()
 
@@ -188,10 +189,11 @@ class SViewer(QObject):
         ''' only for back compatibility only -  use instead drawSpectraGraph '''
         self.drawSpectraGraph()
 
-    def updateSpectra(self):
-        ''' update spectra after the data were changed '''
-        self.calculateSpectra()
-        self.drawSpectraGraph()
+    def updateSpectra(self, event):
+        ''' update spectra (calculate and draw) after the data were changed '''
+        if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data):
+            self.calculateSpectra()
+            self.drawSpectraGraph()
 
     def updateTextOverlay(self):
         ''' update spectra histogram title'''
@@ -204,12 +206,24 @@ class SViewer(QObject):
         self.viewer.text_overlay.text = f' {myw} nm'
 
     def setImage(self, image):
-        ''' set the image '''
+        ''' set the image. only if the dimensions of the image changed, then mask is recalculated'''
+        # check if the mask has to be recalculated
+        calculateMask = True
+        try:
+            if self.spotSpectra.wxyImage.shape == image.shape:
+                calculateMask = False
+        except:
+                print('some error in shape')
+
         self.xywImage = image
         self.spectraLayer.data = self.xywImage
         self.spotSpectra.setImage(self.xywImage)
-        #self.viewer.reset_view()
-        self.calculateSpectra()
+        if calculateMask: 
+            self.calculateSpectra()
+            print('dimension did not equal')
+        else:
+            self.pointSpectra = self.spotSpectra.getSpectra()
+
         self.updateSpectraGraph()
 
     def setWavelength(self, wavelength):
@@ -220,9 +234,9 @@ class SViewer(QObject):
 
     def _speedUpLineDrawing(self,line):
         ''' set parameter of a line in a pyqtplot so that it is quicker'''
-        #line.setDownsampling(auto=True)
-        #line.setClipToView(True)
-        #line.setSkipFiniteCheck(True)
+        line.setDownsampling(auto=True)
+        line.setClipToView(True)
+        line.setSkipFiniteCheck(True)
         return line
 
     def run(self):

@@ -6,7 +6,9 @@ from viscope.gui.baseGUI import BaseGUI
 from spectralCamera.gui.spectralViewer.sViewer import SViewer
 
 class SViewerGUI(BaseGUI):
-    ''' main class to show SViewerGUI'''
+    ''' main class to show SViewerGUI
+    calculation of the spectra are done in the main thread of the SViewer
+    '''
 
     DEFAULT = {'nameGUI': 'SViewer'}
 
@@ -33,9 +35,8 @@ class SViewerGUI(BaseGUI):
     def updateGui(self):
         ''' update the data in gui '''
         # napari
-        self.sViewer.setImage(self.device.sImage)
         self.sViewer.setWavelength(self.device.wavelength)
-
+        self.sViewer.setImage(self.device.sImage)
 
 
 if __name__ == "__main__":

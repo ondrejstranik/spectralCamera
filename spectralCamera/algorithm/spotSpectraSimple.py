@@ -56,6 +56,7 @@ class SpotSpectraSimple:
 
         # return in there are no spots
         if _spotPosition.size ==0:
+            self.spectraSpot = []
             return
 
         # define the bool vector with outliers
@@ -102,12 +103,13 @@ class SpotSpectraSimple:
         ''' calculate the spectra '''
 
         if self.spotPosition is None or len(self.spotPosition)==0:
+            self.spectraSpot = []
             return
         else:
             nSpot = len(self.spotPosition)
         
         if self.maskSpotIdx is None:
-            print('no self.maskSpotIdx or self.maskBcgIdx')
+            print('no self.maskSpotIdx')
             return
         
         if not hasattr(self,'wxyImage') or self.wxyImage is None:
