@@ -1,5 +1,5 @@
 '''
-class for viewing spots's plasmon resonance
+class for viewing spectra in specta-spatial image
 '''
 import pyqtgraph as pg
 from PyQt5.QtGui import QColor, QPen
@@ -8,6 +8,8 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 from viscope.gui.napariViewer.napariViewer import NapariViewer
 from qtpy.QtCore import QObject
+from spectralCamera.algorithm.spotSpectraSimple import SpotSpectraSimple
+import traceback
 
 import napari
 
@@ -16,9 +18,9 @@ import numpy as np
 pg.setConfigOptions(useOpenGL=True,antialias=False)
 
 
-class XYWViewer(QObject):
-    ''' main class for viewing spectral images'''
-    DEFAULT = {'nameGUI':'XYWViewer',
+class SViewer(QObject):
+    ''' main class for viewing point spectra in spectral images'''
+    DEFAULT = {'nameGUI':'SViewer',
                'maxNLine': 200} # maxNLine ... max number of line plotted in the graph
 
     sigUpdateData = Signal()
@@ -39,15 +41,10 @@ class XYWViewer(QObject):
         else:
             self.wavelength = np.arange(self.xywImage.shape[0]) 
 
-        #spectral processing parameters
-        self.pxAve = 3 # radius of the area of spectra averaging
-
         # calculated parameters
-        self.pointSpectra = [] # list of spectra
-        self.spectraHistogramValue = None
-        self.spectraHistogramBin = None
+        self.spotSpectra = SpotSpectraSimple(self.xywImage)
 
-        # napari
+        # add napari
         if 'show' in kwargs:
             self.viewer = NapariViewer(show=kwargs['show'])
         else:
@@ -65,31 +62,28 @@ class XYWViewer(QObject):
         # spectra widget
         self.spectraGraph = None
         self.lineplotList = []
-        self.maxNLine = XYWViewer.DEFAULT['maxNLine']
+        self.penList = []
+        self.maxNLine = SViewer.DEFAULT['maxNLine']
         
-        # histogram widget
-        self.spectraHistogram = None
-        self.spectraBarGraph = None
-
         # set this qui of this class
-        XYWViewer._setWidget(self)
+        SViewer._setWidget(self)
 
     def _setWidget(self):
         ''' prepare the gui '''
 
+        # set napari viewer
         window_height = self.viewer.window._qt_window.sizeHint().height()
         window_width = self.viewer.window._qt_window.sizeHint().width()
-
         # add image layer
         self.spectraLayer = self.viewer.add_image(self.xywImage, rgb=False, colormap="gray", 
                                             name='SpectraCube', blending='additive')
         # add point layer
         self.pointLayer = self.viewer.add_points(name='points', size=5, face_color='red')
+        # add text overlay
+        self.viewer.text_overlay.visible = True
 
-        
-  
-        # set some parameters of napari
-        #self.spectraLayer._keep_auto_contrast = True
+
+        # set active layer of napari
         self.viewer.layers.selection.active = self.spectraLayer
 
         # add widget spectraGraph
@@ -101,11 +95,12 @@ class XYWViewer(QObject):
         self.spectraGraph.setLabel('left', 'Intensity', units='a.u.')
         self.spectraGraph.setLabel('bottom', 'Wavelength ', units= 'nm')
         dw = self.viewer.window.add_dock_widget(self.spectraGraph, name = 'spectra')
-        # pre allocate lines for the graph
+        # pre allocate lines and pens for the graph
         for ii in range(self.maxNLine):
             self.lineplotList.append(self.spectraGraph.plot())
             self.lineplotList[-1].hide()
             self._speedUpLineDrawing(self.lineplotList[-1])
+            self.penList.append(pg.mkPen(width=1))
 
         # register the graph in menu
         menuBar = self.viewer.window._qt_window.menuBar()
@@ -126,70 +121,24 @@ class XYWViewer(QObject):
         self.dockWidgetData = dw
         self.viewer.window._qt_window.resizeDocks([dw], [500], Qt.Vertical)
 
-        # add spectra histogram widget
-        self.spectraHistogram = pg.PlotWidget()
-        self.spectraHistogram.setTitle(f'Spectra Histogram')
-        styles = {'color':'r', 'font-size':'20px'}
-        self.spectraHistogram.setLabel('left', '#', units='a.u.')
-        self.spectraHistogram.setLabel('bottom', 'pixel value', units= 'a.u.')
-        #self.spectraGraph.setFixedHeight(300)
-        dw = self.viewer.window.add_dock_widget(self.spectraHistogram, name='histogram spectrum')
-        #dw.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
-        #dw.setMaximumHeight(window_height)
-        # tabify the widget
-        self.viewer.window._qt_window.tabifyDockWidget(self.dockWidgetData,dw)
-        self.dockWidgetData = dw
-        self.viewer.window._qt_window.resizeDocks([dw], [500], Qt.Vertical)
-        # register the graph in menu
-        if window_menu is not None:
-            window_menu.addAction(dw.toggleViewAction())
-
-        self.calculateSpectraHistogram()
-        self.drawSpectraHistogram()
-
         # connect events in napari
         # connect changes of the slicer in the viewer
-        self.viewer.dims.events.current_step.connect(self.updateHistogram)
-       # connect changes in data in this layer
+        self.viewer.dims.events.current_step.connect(self.updateTextOverlay)
+        
+        # connect changes in data in this layer for update in main tread
         self.pointLayer.events.data.connect(self.updateSpectra)
         self.pointLayer._face.events.current_color.connect(self.colorChange)
+
+        # connect signal for a changes in the points and their color
         self.pointLayer._face.events.current_color.connect(lambda: self.sigUpdateData.emit())
         self.pointLayer.events.data.connect(lambda: self.sigUpdateData.emit())
 
 
     def calculateSpectra(self):
         ''' calculate the spectra at the given points'''
-        self.pointSpectra = []
+        self.spotSpectra.setSpot(self.pointLayer.data)
+        self.pointSpectra = self.spotSpectra.getSpectra()
 
-        # calculate pointSpectra
-        if self.spectraLayer.data.ndim ==3:
-            myPoints = self.pointLayer.data
-            for ii in np.arange(myPoints.shape[0]):
-                try:
-                    temp = np.sum(
-                        self.spectraLayer.data[
-                        :,
-                        int(myPoints[ii,0])-self.pxAve:int(myPoints[ii,0])+self.pxAve+1,
-                        int(myPoints[ii,1])-self.pxAve:int(myPoints[ii,1])+self.pxAve+1
-                        ], axis = (1,2)) / (2*self.pxAve+1)**2
-                    self.pointSpectra.append(temp)
-                except:
-                    self.pointSpectra.append(0*self.wavelength)
-
-        if self.spectraLayer.data.ndim ==4:
-            myPoints = self.pointLayer.data
-            for ii in np.arange(myPoints.shape[0]):
-                try:
-                    temp = np.sum(
-                        self.spectraLayer.data[int(self.viewer.dims.point[0]),
-                        :,
-                        int(myPoints[ii,0])-self.pxAve:int(myPoints[ii,0])+self.pxAve+1,
-                        int(myPoints[ii,1])-self.pxAve:int(myPoints[ii,1])+self.pxAve+1
-                        ], axis = (1,2)) / (2*self.pxAve+1)**2
-                    self.pointSpectra.append(temp)
-                except:
-                    self.pointSpectra.append(0*self.wavelength)
-    
     def colorChange(self):
         ''' change the color of the spectral with the change of the point color
         very cumbersome way due to the internal processes in napari'''
@@ -214,23 +163,21 @@ class XYWViewer(QObject):
         except:
             return
     
-        # define pen object
-        mypen = QPen()
-        mypen.setWidth(0)
-
         # pointSpectra
         for ii in np.arange(nSig):
             try:
-                mypen.setColor(QColor.fromRgbF(*list(
+                self.penList[ii].setColor(QColor.fromRgbF(*list(
                     self.pointLayer.face_color[ii])))
             except:
-                pass
-
+                print('error occurred in drawSpectraGraph - pointSpectra')
+                traceback.print_exc()
             try:
-                self.lineplotList[ii].setData(self.wavelength, self.pointSpectra[ii])
+                self.lineplotList[ii].setData(self.wavelength, self.pointSpectra[ii], pen = self.penList[ii])
                 self.lineplotList[ii].show()
             except:
                 print('error occurred in drawSpectraGraph - pointSpectra')
+                print(f'point spectra {self.pointSpectra[ii]}')
+                traceback.print_exc()
                 
         # hide extra lines
         for ii in np.arange(self.maxNLine - nSig):
@@ -246,88 +193,36 @@ class XYWViewer(QObject):
         self.calculateSpectra()
         self.drawSpectraGraph()
 
-    def calculateSpectraHistogram(self):
-        ''' calculate histogram of given spectral channel '''
-
-        if self.spectraLayer.data.ndim ==3:
-            try:
-                (self.spectraHistogramValue, self.spectraHistogramBin) = np.histogram(
-                    self.spectraLayer.data[int(self.viewer.dims.point[0]),:,:])
-            except:
-                self.spectraHistogramBin = np.arange(2)
-                self.spectraHistogramValue = 0*self.spectraHistogramBin[0:-1]
-
-        if self.spectraLayer.data.ndim ==4:
-            try:
-                (self.spectraHistogramValue, self.spectraHistogramBin) = np.histogram(
-                    self.spectraLayer.data[int(self.viewer.dims.point[0]),
-                    int(self.viewer.dims.point[1]),:,:])
-            except:
-                self.spectraHistogramBin = np.arange(2)
-                self.spectraHistogramValue = 0*self.spectraHistogramBin[0:-1]
-
-
-    def drawSpectraHistogram(self):
-        ''' draw spectral histogram '''
-
-        self.spectraHistogram.clear()
-        self.spectraBarGraph = pg.BarGraphItem(x = self.spectraHistogramBin[0:-1], 
-        height = self.spectraHistogramValue, 
-        width= self.spectraHistogramBin[1]- self.spectraHistogramBin[0])
-        self.spectraHistogram.addItem(self.spectraBarGraph)
-
-    def updateSpectraHistogram(self):
-        ''' update spectra histogram values '''
-        try:
-            self.spectraBarGraph.setOpts(x0=self.spectraHistogramBin[0:-1], 
-            height=self.spectraHistogramValue,
-            width= self.spectraHistogramBin[1]- self.spectraHistogramBin[0])
-        except:
-            print('error occurred in updateSpectraHistogram')
-
-    def updateSpectraHistogramTitle(self):
+    def updateTextOverlay(self):
         ''' update spectra histogram title'''
-        if self.spectraLayer.data.ndim ==3:
-            try:
-                myw = self.wavelength[int(self.viewer.dims.point[0])]
-                self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
-            except:
-                print('error occurred in updateSpectraHistogramTitle')
-        if self.spectraLayer.data.ndim ==4:
-            try:
-                myw = self.wavelength[int(self.viewer.dims.point[1])]
-                self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
-            except:
-                print('error occurred in updateSpectraHistogramTitle')
-
-
-    def updateHistogram(self):
-        ''' update histogram values '''
-        self.calculateSpectraHistogram()
-        self.updateSpectraHistogram()
-        self.updateSpectraHistogramTitle()
+        
+        try:
+            myw = self.wavelength[int(self.viewer.dims.point[0])]
+        except:
+            myw = 0
+        
+        self.viewer.text_overlay.text = f' {myw} nm'
 
     def setImage(self, image):
         ''' set the image '''
         self.xywImage = image
         self.spectraLayer.data = self.xywImage
+        self.spotSpectra.setImage(self.xywImage)
         #self.viewer.reset_view()
         self.calculateSpectra()
         self.updateSpectraGraph()
-        self.updateHistogram()
 
     def setWavelength(self, wavelength):
         ''' set wavelength '''        
         self.wavelength = wavelength
         if len(wavelength)!= self.xywImage.shape[0]:
             print('number of wavelength is not equal to image spectral channels')
-        self.updateSpectraHistogramTitle()
 
     def _speedUpLineDrawing(self,line):
         ''' set parameter of a line in a pyqtplot so that it is quicker'''
-        line.setDownsampling(auto=True)
-        line.setClipToView(True)
-        line.setSkipFiniteCheck(True)
+        #line.setDownsampling(auto=True)
+        #line.setClipToView(True)
+        #line.setSkipFiniteCheck(True)
         return line
 
     def run(self):
