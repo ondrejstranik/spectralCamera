@@ -5,8 +5,8 @@ class for live viewing spectral images
 from viscope.gui.baseGUI import BaseGUI
 from spectralCamera.gui.spectralViewer.sViewer import SViewer
 
-class SViewerGui(BaseGUI):
-    ''' main class to show SViewer'''
+class SViewerGUI(BaseGUI):
+    ''' main class to show SViewerGUI'''
 
     DEFAULT = {'nameGUI': 'SViewer'}
 
@@ -15,7 +15,7 @@ class SViewerGui(BaseGUI):
         super().__init__(viscope, **kwargs)
 
         # prepare the gui of the class
-        SViewerGui.__setWidget(self) 
+        SViewerGUI.__setWidget(self) 
 
     def __setWidget(self):
         ''' prepare the gui '''

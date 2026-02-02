@@ -43,7 +43,7 @@ def test_SViewerGUI():
     from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera    
     from spectralCamera.instrument.sCamera.sCamera import SCamera
     from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
-    from spectralCamera.gui.sViewerGUI import SViewerGui
+    from spectralCamera.gui.sViewerGUI import SViewerGUI
     from spectralCamera.gui.sCameraGUI import SCameraGUI
 
     camera = WebCamera(name='WebCamera')
@@ -60,7 +60,7 @@ def test_SViewerGUI():
     sCamera.setParameter('threadingNow',True)
 
     print('starting main event loop')
-    newGUI  = SViewerGui(viscope)
+    newGUI  = SViewerGUI(viscope)
     newGUI.setDevice(sCamera)
     newGUI  = SCameraGUI(viscope)
     newGUI.setDevice(sCamera)
