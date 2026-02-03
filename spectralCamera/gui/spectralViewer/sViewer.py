@@ -126,10 +126,6 @@ class SViewer(QObject):
         self.pointLayer._face.events.current_color.connect(lambda: self.sigUpdateData.emit())
         self.pointLayer.events.data.connect(lambda: self.sigUpdateData.emit())
 
-    def calculateSpectra(self):
-        ''' calculate the spectra at the given points'''
-        self.pointSpectra = self.spotSpectra.getSpectra()
-
     def updateColor(self):
         ''' change the color of the spectral with the change of the point color
         very cumbersome way due to the internal processes in napari'''
@@ -147,7 +143,7 @@ class SViewer(QObject):
     def drawSpectraGraph(self):
         ''' draw all lines in the spectraGraph '''
 
-        # if there is no pointSpectra then do not continue
+        # if there is no points then do not continue
         try:
             nSig = len(self.spotSpectra.getSpectra())
         except:
@@ -179,7 +175,7 @@ class SViewer(QObject):
         self.spectraGraph.setUpdatesEnabled(True)
 
 
-    def updateMask(self, event):
+    def updateMask(self):
         ''' if points changed than update mask, spectra and graph'''
         # if old one is not the new one
         if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data):

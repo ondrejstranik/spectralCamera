@@ -35,7 +35,7 @@ class SpotSpectraSimple:
 
         self.spectraSpot = []
 
-        self.setMask()
+        SpotSpectraSimple.setMask(self)
         
 
     def setMask(self,pxAve=None):
@@ -84,6 +84,7 @@ class SpotSpectraSimple:
 
         except:
             print('error in setting self.maskImage')
+            print(f'_spotPosition {_spotPosition}')
             traceback.print_exc()
 
         # calculate the spectra with the new mask
