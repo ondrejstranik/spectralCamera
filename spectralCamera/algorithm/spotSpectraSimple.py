@@ -16,11 +16,13 @@ class SpotSpectraSimple:
                 }
 
 
-    def __init__(self,wxyImage=None,spotPosition= [],**kwarg):
+    def __init__(self,image=None,spotPosition= [],wavelength = None, **kwarg):
         ''' initialization of the parameters '''
 
-        if wxyImage is not None: self.wxyImage = wxyImage  # spectral Image
+        if image is not None: self.image = image  # spectral Image
         if spotPosition is not []: self.spotPosition = spotPosition
+        if wavelength is not None: self.wavelength = wavelength  # wavelength
+
 
         # parameters of the mask
         self.pxAve= int(kwarg['pxAve']) if 'pxAve' in kwarg else  self.DEFAULT['pxAve']
@@ -47,7 +49,7 @@ class SpotSpectraSimple:
         self.maskSpot = np.ones((self.maskSize,self.maskSize))
 
         # return if there is no image
-        if not hasattr(self,'wxyImage'):
+        if not hasattr(self,'image'):
             return
 
         # identify the spots, whose mask is not whole in image
@@ -73,9 +75,9 @@ class SpotSpectraSimple:
 
             _olm = np.any((
                 self.maskSpotIdx[0]<0, 
-                self.maskSpotIdx[0]>self.wxyImage.shape[1]-1, 
+                self.maskSpotIdx[0]>self.image.shape[1]-1, 
                 self.maskSpotIdx[1]<0,
-                self.maskSpotIdx[1]>self.wxyImage.shape[2]-1,
+                self.maskSpotIdx[1]>self.image.shape[2]-1,
                 ),axis=0)
 
             self.outliers = np.any(_olm,axis=1)
@@ -93,11 +95,23 @@ class SpotSpectraSimple:
 
         self.setMask()
         
-    def setImage(self, wxyImage):
-        ''' set the spectra image and calculate image and calculate spectra'''
-        self.wxyImage = wxyImage
-
+    def setImage(self, image):
+        ''' set the spectra image and and calculate spectra'''
+        self.image = image
         self.calculateSpectra()
+
+    def setWavelength(self,wavelength):
+        ''' set the wavelength '''
+        self.wavelength = wavelength
+
+        if len(wavelength)!= self.image.shape[0]:
+            print('number of wavelength is not equal to image spectral channels')
+
+
+    def setImageSpot(self, image, spotPosition):
+        ''' set the spectra image, spot position and calculate spectra'''
+        self.image = image
+        self.setSpot(spotPosition)
 
     def calculateSpectra(self):
         ''' calculate the spectra '''
@@ -112,14 +126,14 @@ class SpotSpectraSimple:
             print('no self.maskSpotIdx')
             return
         
-        if not hasattr(self,'wxyImage') or self.wxyImage is None:
+        if not hasattr(self,'image') or self.image is None:
             return
 
-        _spectraSpot = np.ones((nSpot,self.wxyImage.shape[0]))
+        _spectraSpot = np.ones((nSpot,self.image.shape[0]))
 
         try:
             _spectraSpot[~self.outliers,:] = np.sum(
-                self.wxyImage[:,
+                self.image[:,
                             self.maskSpotIdx[0][~self.outliers,:],
                             self.maskSpotIdx[1][~self.outliers,:]
                             ],axis=2).T
@@ -138,6 +152,8 @@ class SpotSpectraSimple:
         ''' return spectra of the spots'''
         return self.spectraSpot
 
+    def getImage(self):
+        return self.image
 
 #%%
 
