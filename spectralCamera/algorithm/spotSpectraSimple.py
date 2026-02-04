@@ -39,7 +39,7 @@ class SpotSpectraSimple:
         
 
     def setMask(self,pxAve=None):
-        ''' set the geometry of spots mask  and calculate spectra'''
+        ''' set the geometry of spots mask'''
 
         if pxAve is not None:
             self.pxAve = int(pxAve)
@@ -87,19 +87,14 @@ class SpotSpectraSimple:
             print(f'_spotPosition {_spotPosition}')
             traceback.print_exc()
 
-        # calculate the spectra with the new mask
-        self.calculateSpectra()
 
     def setSpot(self, spotPosition):
-        ''' set position of the spots  and calculate spectra'''
+        ''' set position of the spots '''
         self.spotPosition = np.array(spotPosition)
-
-        self.setMask()
         
     def setImage(self, image):
-        ''' set the spectra image and and calculate spectra'''
+        ''' set the spectra image'''
         self.image = image
-        self.calculateSpectra()
 
     def setWavelength(self,wavelength):
         ''' set the wavelength '''
@@ -107,12 +102,6 @@ class SpotSpectraSimple:
 
         if len(wavelength)!= self.image.shape[0]:
             print('number of wavelength is not equal to image spectral channels')
-
-
-    def setImageSpot(self, image, spotPosition):
-        ''' set the spectra image, spot position and calculate spectra'''
-        self.image = image
-        self.setSpot(spotPosition)
 
     def calculateSpectra(self):
         ''' calculate the spectra '''

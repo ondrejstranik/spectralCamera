@@ -114,19 +114,26 @@ class SViewer(QObject):
         if self.window_menu is not None:
             self.window_menu.addAction(dw.toggleViewAction())
 
-
         # connect events
         # connect changes of the slicer in the viewer
         self.viewer.dims.events.current_step.connect(self.updateTextOverlay)
         # connect changes in data in this layer for update in main tread
-        self.pointLayer.events.data.connect(self.updateMask)
-        self.pointLayer._face.events.current_color.connect(self.updateColor)
+        # avoid multiple signal emission by comparing the arrays
+        self.pointLayer.events.data.connect(
+            lambda: self.pointChanged() if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data)
+            else None
+        )
+        self.pointLayer._face.events.current_color.connect(self.colorChanged)
 
         # connect signal for a changes in the points and their color
         self.pointLayer._face.events.current_color.connect(lambda: self.sigUpdateData.emit())
-        self.pointLayer.events.data.connect(lambda: self.sigUpdateData.emit())
+        # avoid multiple signal emission by comparing the arrays
+        self.pointLayer.events.data.connect(
+            lambda: self.sigUpdateData.emit() if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data)
+            else None
+        )            
 
-    def updateColor(self):
+    def colorChanged(self):
         ''' change the color of the spectral with the change of the point color
         very cumbersome way due to the internal processes in napari'''
         # it is necessary to remember it 
@@ -174,14 +181,18 @@ class SViewer(QObject):
 
         self.spectraGraph.setUpdatesEnabled(True)
 
+    def calculateSpectra(self):
+        ''' calculate the spectra '''
+        self.spotSpectra.calculateSpectra()
 
-    def updateMask(self):
-        ''' if points changed than update mask, spectra and graph'''
-        # if old one is not the new one
-        if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data):
-            print('recalculating mask')
-            self.spotSpectra.setSpot(self.pointLayer.data)
-            self.drawSpectraGraph()
+    def pointChanged(self):
+        ''' updates the points, calculate spectra and draw the spectra'''
+        print('recalculating mask')
+        self.spotSpectra.setSpot(self.pointLayer.data)
+        self.spotSpectra.setMask()
+
+        self.calculateSpectra()
+        self.drawSpectraGraph()
 
     def updateTextOverlay(self):
         ''' update spectra histogram title'''
@@ -201,12 +212,13 @@ class SViewer(QObject):
                 calculateMask = False
         except:
             pass
+        self.spotSpectra.setImage(image)
+
         if calculateMask: 
             print('image dimensions not equal, recalculating mask')
-            self.spotSpectra.setImageSpot(image,self.pointLayer.data)
-        else:
-            self.spotSpectra.setImage(image)
+            self.spotSpectra.setSpot(self.pointLayer.data)
 
+        self.calculateSpectra()
         self.spectraLayer.data = image
         self.drawSpectraGraph()
 
