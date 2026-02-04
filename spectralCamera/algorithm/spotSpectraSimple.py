@@ -127,6 +127,9 @@ class SpotSpectraSimple:
                             self.maskSpotIdx[0][~self.outliers,:],
                             self.maskSpotIdx[1][~self.outliers,:]
                             ],axis=2).T
+            _spectraSpot[~self.outliers,:] = (
+                _spectraSpot[~self.outliers,:] / self.maskSpotIdx[0].shape[1]
+            )
         except:
             print('error in calculateSpectra')
             traceback.print_exc()
