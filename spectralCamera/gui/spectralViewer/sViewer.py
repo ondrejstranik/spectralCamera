@@ -10,6 +10,7 @@ from viscope.gui.napariViewer.napariViewer import NapariViewer
 from qtpy.QtCore import QObject
 from spectralCamera.algorithm.spotSpectraSimple import SpotSpectraSimple
 import traceback
+from timeit import default_timer as timer
 
 import napari
 
@@ -219,12 +220,21 @@ class SViewer(QObject):
             self.spotSpectra.setSpot(self.pointLayer.data)
 
         self.calculateSpectra()
-        self.spectraLayer.data = image
-        self.drawSpectraGraph()
+        self.redraw()
 
     def setWavelength(self, wavelength):
         ''' set wavelength '''        
         self.spotSpectra.setWavelength(wavelength)
+
+    def redraw(self):
+        ''' only redraw the images, spectra. It does not recalculate it '''
+        start = timer()
+        
+        self.spectraLayer.data = self.spotSpectra.getImage()
+        self.drawSpectraGraph()
+
+        end = timer()
+        print(f'viewer redraw evaluation time {end -start} s')
 
     def _speedUpLineDrawing(self,line):
         ''' set parameter of a line in a pyqtplot so that it is quicker'''
