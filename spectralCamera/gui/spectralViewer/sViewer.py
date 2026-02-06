@@ -143,8 +143,7 @@ class SViewer(QObject):
         # this allow to draw spectral lines with proper color
         # however it will stop redrawing the points with a new color
         self.pointLayer.face_color[list(self.pointLayer.selected_data)] = self.pointLayer._face.current_color
-        self.drawSpectraGraph()
-
+        self.redraw(modified='point')
         # therefore the face_colors are set back only to be put internally to new values
         self.pointLayer.face_color[list(self.pointLayer.selected_data)] = _aux
 
@@ -193,10 +192,10 @@ class SViewer(QObject):
         self.spotSpectra.setMask()
 
         self.calculateSpectra()
-        self.drawSpectraGraph()
+        self.redraw(modified='point')
 
     def updateTextOverlay(self):
-        ''' update spectra histogram title'''
+        ''' update wavelength overlay info text in viewer'''
         try:
             myw = self.spotSpectra.wavelength[int(self.viewer.dims.point[0])]
         except:
@@ -205,34 +204,23 @@ class SViewer(QObject):
         self.viewer.text_overlay.text = f' {myw} nm'
 
     def setImage(self, image):
-        ''' set the image. only if the dimensions of the image changed, then mask is recalculated'''
-        # check if the mask has to be recalculated
-        calculateMask = True
-        try:
-            if self.spotSpectra.image.shape == image.shape:
-                calculateMask = False
-        except:
-            pass
+        ''' set the image. it recalculate the spectra'''
         self.spotSpectra.setImage(image)
-
-        if calculateMask: 
-            print('image dimensions not equal, recalculating mask')
-            self.spotSpectra.setSpot(self.pointLayer.data)
-
         self.calculateSpectra()
-        self.redraw()
+        self.redraw(modified='image')
 
     def setWavelength(self, wavelength):
         ''' set wavelength '''        
         self.spotSpectra.setWavelength(wavelength)
 
-    def redraw(self):
+    def redraw(self,modified='all'):
         ''' only redraw the images, spectra. It does not recalculate it '''
         start = timer()
-        
-        self.spectraLayer.data = self.spotSpectra.getImage()
-        self.drawSpectraGraph()
-
+        if (modified=='image') or (modified=='all'):
+            self.spectraLayer.data = self.spotSpectra.getImage()
+            self.drawSpectraGraph()           
+        if (modified=='point') or (modified=='all'):
+            self.drawSpectraGraph()
         end = timer()
         print(f'viewer redraw evaluation time {end -start} s')
 

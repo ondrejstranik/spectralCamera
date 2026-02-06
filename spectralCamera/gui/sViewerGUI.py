@@ -38,7 +38,6 @@ class SViewerGUI(BaseGUI):
         self.sViewer.setWavelength(self.device.wavelength)
         self.sViewer.setImage(self.device.sImage)
 
-
 if __name__ == "__main__":
     pass
 
