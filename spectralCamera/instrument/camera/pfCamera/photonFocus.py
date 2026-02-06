@@ -52,7 +52,7 @@ class Photonfocus:
         self.calibrationFile = self.defaultCalibrationFile
         # matrix index = 0 for filter with 600-875nm band pass
         # matrix index = 1 for filter with 675-975nm band pass        
-        self.matrix_index = 0
+        self.matrix_index = 1
         self.chipOffsetTopLeft = [0,3]
         self.chipOffsetBottomRight = [0,5]
 
