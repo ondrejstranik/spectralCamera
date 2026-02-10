@@ -16,7 +16,7 @@ class FileSIVideo:
     DEFAULT = {'nameSet'  : {
                             'wavelength': 'wavelength.npy',
                             'image': 'time_{}'}
-                            }
+                            'compression': True}
 
     def __init__(self,folder=None, **kwargs):
         ''' initialisation '''
@@ -46,7 +46,15 @@ class FileSIVideo:
         ''' save image in the folder with time tag
         the default timeTag is nanoseconds from the beginning of epoch time'''
         timeTag = time.time_ns() if timeTag is None else timeTag
-        np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
+        try:
+            if self.DEFAULT['nameSet']['compression']:
+                np.savez_compressed(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
+            else:
+                np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
+
+        except:
+            print('error in class FileSIVideo, function saveImage - could not save image')
+            traceback.print_exc()
 
     def loadImage(self,fileName, folder=None):
         ''' loading the spectral image'''
