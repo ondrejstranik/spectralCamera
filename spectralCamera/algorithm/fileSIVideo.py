@@ -15,8 +15,8 @@ class FileSIVideo:
     
     DEFAULT = {'nameSet'  : {
                             'wavelength': 'wavelength.npy',
-                            'image': 'time_{}'}
-                            'compression': True}
+                            'image': 'time_{}',
+                            'compression': True}}
 
     def __init__(self,folder=None, **kwargs):
         ''' initialisation '''
