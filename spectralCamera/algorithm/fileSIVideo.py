@@ -9,14 +9,15 @@ import time
 import numpy as np
 from pathlib import Path
 import re
+import traceback
 
 class FileSIVideo:
     ''' class to save load time series of spectral Images into a folder '''
     
     DEFAULT = {'nameSet'  : {
                             'wavelength': 'wavelength.npy',
-                            'image': 'time_{}',
-                            'compression': True}}
+                            'image': 'time_{}'}
+    }
 
     def __init__(self,folder=None, **kwargs):
         ''' initialisation '''
@@ -47,10 +48,7 @@ class FileSIVideo:
         the default timeTag is nanoseconds from the beginning of epoch time'''
         timeTag = time.time_ns() if timeTag is None else timeTag
         try:
-            if self.DEFAULT['nameSet']['compression']:
-                np.savez_compressed(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
-            else:
-                np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
+            np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
 
         except:
             print('error in class FileSIVideo, function saveImage - could not save image')
