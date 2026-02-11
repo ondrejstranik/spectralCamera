@@ -18,7 +18,7 @@ except:
     pass
 
 
-spectralCamera.dataFolder = r'C:\Users\ostranik\Documents\GitHub\spectralCamera\spectralCamera\DATA\24-06-26-calibration'
+spectralCamera.dataFolder = r'C:\Users\ostranik\Documents\GitHub\spectralCamera\spectralCamera\DATA\26-02-11-calibration'
 
 whiteFileName = 'white_0.npy'
 imageNameStack = ['filter_602_0','filter_505_0','filter_705_0']
@@ -38,7 +38,7 @@ myCal = CalibrateFrom3Images(imageNameStack=imageNameStack,
 myCal.setImageStack()
 
 #%% process calibration images
-if False:
+if Truey:
     print('processing the reference images - getting the grid')
     myCal.prepareGrid(spectralRange)
     myCal._saveGridStack()
