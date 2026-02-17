@@ -34,8 +34,7 @@ class CalibratePFImage(BaseCalibrate):
     def getSpectralImage(self,rawImage,
                          spectralCorrection=True,
                          darkValue=None,
-                         spectraSigma=0,
-                         **kwargs):
+                           **kwargs):
         ''' get the spectral image from raw image'''
         
         if darkValue is not None:
@@ -46,15 +45,15 @@ class CalibratePFImage(BaseCalibrate):
                                                    spectralCorrection=spectralCorrection)
 
         # TODO: temporary!! smoothing
-        # remove afterwards 
-        if spectraSigma >0:
-            smoothWYXImage = gaussian_filter(WYXImage, sigma=spectraSigma, axes=0)
-        else:
-            smoothWYXImage = WYXImage
+        # move to sCamera
+        #if spectraSigma >0:
+        #    smoothWYXImage = gaussian_filter(WYXImage, sigma=spectraSigma, axes=0)
+        #else:
+        #    smoothWYXImage = WYXImage
 
-        return smoothWYXImage
+        #return smoothWYXImage
 
-        #return  WYXImage
+        return  WYXImage
 
 
 if __name__ == "__main__":

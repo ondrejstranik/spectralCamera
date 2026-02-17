@@ -13,6 +13,8 @@ from spectralCamera.algorithm.calibrateRGBImage import CalibrateRGBImage
 from spectralCamera.algorithm.calibrateLoader import CalibrateLoader
 from spectralCamera.algorithm.fileSIVideo import FileSIVideo
 
+from scipy.ndimage import gaussian_filter
+
 class SCamera(BaseProcessor):
     ''' class to control spectral camera
     process raw data from camera to create spectral image,
@@ -72,11 +74,19 @@ class SCamera(BaseProcessor):
     def imageDataToSpectralCube(self,imageData):
         ''' convert image to hyper spectral cube'''
         
-        return self.spectraCalibration.getSpectralImage(imageData,
+        cube = self.spectraCalibration.getSpectralImage(imageData,
                 aberrationCorrection = self.aberrationCorrection,
                 spectralCorrection= self.spectralCorrection,
                 spectraSigma= self.spectraSigma,
                 darkValue= self.darkValue)
+        
+        # apply gaussian smoothing
+        if self.aberrationCorrection and self.spectraSigma >0:
+            return gaussian_filter(cube, sigma=self.spectraSigma, axes=0)
+        else:
+            return cube
+
+
 
     def getLastSpectralImage(self):
         ''' direct call of the camera image and spectral processing of it '''
