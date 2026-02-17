@@ -80,11 +80,17 @@ class SCamera(BaseProcessor):
                 spectraSigma= self.spectraSigma,
                 darkValue= self.darkValue)
         
+        # remove darkValue. It is mathematically right, only if function getSpectralImage
+        # is a linear operation
+        if self.aberrationCorrection:
+            cube = cube -self.darkValue
+
         # apply gaussian smoothing
         if self.aberrationCorrection and self.spectraSigma >0:
-            return gaussian_filter(cube, sigma=self.spectraSigma, axes=0)
-        else:
-            return cube
+            cube = gaussian_filter(cube, sigma=self.spectraSigma, axes=0)
+
+        return cube
+
 
 
 
