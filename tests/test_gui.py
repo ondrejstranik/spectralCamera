@@ -105,3 +105,30 @@ def test_saveSIVideoGUI():
 
     camera.disconnect()
     sCamera.disconnect()
+
+@pytest.mark.GUI
+def test_SCameraFromFileGUI():
+    ''' testing sCameraFromFileGUI'''
+
+    from spectralCamera.instrument.sCamera.sCameraFromFile import SCameraFromFile
+    from spectralCamera.gui.sViewerGUI import SViewerGUI
+    from spectralCamera.gui.sCameraFromFileGUI import SCameraFromFileGUI
+    from viscope.main import viscope
+    
+    #spectral camera system
+    fFolder = r'G:\office\work\git\plim\plim\DATA\test_video'
+    sCamera = SCameraFromFile()
+    sCamera.connect()
+    sCamera.setParameter('threadingNow',True)  
+    sCamera.setFolder(fFolder)
+
+    newGUI  = SViewerGUI(viscope)
+    newGUI.setDevice(sCamera)
+
+    newGUI  = SCameraFromFileGUI(viscope)
+    newGUI.setDevice(sCamera)
+
+    # main event loop
+    viscope.run()
+
+    sCamera.disconnect()
