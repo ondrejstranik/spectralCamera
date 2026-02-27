@@ -29,7 +29,7 @@ class SCameraFromFile(BaseSequencer):
         # spectralCamera parameters
         self.sImage = None
         self.wavelength = None
-        self.t0 = time.time() # time of acquisition of the last spectral image
+        self.t0 = 0 # time of acquisition of the last spectral image
         self.image = np.zeros((2,2)) #  it is defined only for compatibility with SCamera processor
         
         # image file parameters
@@ -88,12 +88,9 @@ class SCameraFromFile(BaseSequencer):
 
     def connect(self,processor=None):
         ''' connect data processor with the camera '''
+        super().connect()
         if processor is not None:
-            super().connect()
             self.setParameter('processor',processor)
-        else:
-            super().connect()
-            self.flagToProcess = True
 
     def setParameter(self,name, value):
         ''' set parameter of the spectral camera'''
@@ -125,14 +122,14 @@ class SCameraFromFile(BaseSequencer):
                 time.sleep(0.1)
             try:
                 for ii in self.idx:
-                    print(f'processing {ii} file')
+                    print(f'processing file # {ii}')
                     self.sImage = self.fileSIVideo.loadImage(self.fileName[ii])
-                    self.t0 = self.fileTime[ii]
+                    self.t0 = self.fileTime[ii]/1e9
                     yield True
-                    self.flagLoop = True
+                    self.flagLoop.set()
 
                     # wait till the images are processed
-                    while not self.flagToProcess:
+                    while not self.flagToProcess.is_set():
                         time.sleep(0.003)
 
                     # stop reading the images
