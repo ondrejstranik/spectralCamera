@@ -135,9 +135,13 @@ class SCameraFromFile(BaseSequencer):
                     self.flagLoop.set()
 
                     # wait till the images are processed
-                    while ((self.flagToProcess is not None) and 
-                    (not self.flagToProcess.is_set())):
+                    #while ((self.flagToProcess is not None) and 
+                    #(not self.flagToProcess.is_set())):
+                    #    time.sleep(0.003)
+                    while not self.flagToProcess.is_set():
                         time.sleep(0.003)
+
+
 
                     # stop reading the images
                     if not self.isReading:
