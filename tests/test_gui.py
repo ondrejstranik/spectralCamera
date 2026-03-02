@@ -116,11 +116,12 @@ def test_SCameraFromFileGUI():
     from viscope.main import viscope
     
     #spectral camera system
-    fFolder = r'G:\office\work\git\plim\plim\DATA\test_video'
+    fFolder = r'D:\ondra\LPI\plim\DATA\ifcBased\26-02-25 highMag_BSA-adsorption\raw'
     sCamera = SCameraFromFile()
     sCamera.connect()
     sCamera.setParameter('threadingNow',True)  
     sCamera.setFolder(fFolder)
+    sCamera.setParameter('processor','GUI')
 
     newGUI  = SViewerGUI(viscope)
     newGUI.setDevice(sCamera)

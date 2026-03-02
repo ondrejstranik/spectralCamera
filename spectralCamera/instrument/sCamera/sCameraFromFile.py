@@ -11,8 +11,10 @@ import os
 import time
 import numpy as np
 from viscope.instrument.base.baseSequencer import BaseSequencer
+from viscope.instrument.base.baseInstrument import ThreadFlag
 from spectralCamera.algorithm.fileSIVideo import FileSIVideo
 import traceback
+
 
 class SCameraFromFile(BaseSequencer):
     ''' class to emulating sCamera for delivering saved spectral images
@@ -100,10 +102,14 @@ class SCameraFromFile(BaseSequencer):
 
         if name== 'processor':
             self.processor = value
-            try:
-                self.flagToProcess = self.processor.flagLoop
-            except:
-                print(f'this processor does not have flagToProcess')
+            
+            if value=='GUI':
+                self.flagToProcess = ThreadFlag()
+            else:
+                try:
+                    self.flagToProcess = self.processor.flagLoop
+                except:
+                    print(f'this processor does not have flagToProcess')
 
     def getParameter(self,name):
         ''' get parameter of the camera '''
@@ -135,11 +141,13 @@ class SCameraFromFile(BaseSequencer):
                     self.flagLoop.set()
 
                     # wait till the images are processed
-                    #while ((self.flagToProcess is not None) and 
-                    #(not self.flagToProcess.is_set())):
-                    #    time.sleep(0.003)
-                    while not self.flagToProcess.is_set():
+                    while ((self.flagToProcess is not None) and 
+                    (not self.flagToProcess.is_set()) and
+                    (self.isReading)):
                         time.sleep(0.003)
+                    #while not self.flagToProcess.is_set():
+                    #    time.sleep(0.003)
+                    self.flagToProcess.clear()
 
 
 

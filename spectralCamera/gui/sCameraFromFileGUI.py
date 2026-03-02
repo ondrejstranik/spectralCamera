@@ -18,7 +18,6 @@ class SCameraFromFileGUI(BaseGUI):
         ''' initialise the class '''
         super().__init__(viscope, **kwargs)
 
-
         # prepare the gui of the class
         SCameraFromFileGUI.__setWidget(self) 
 
@@ -84,10 +83,14 @@ class SCameraFromFileGUI(BaseGUI):
 
         # connect the signals
         self.device.worker.yielded.connect(self.guiUpdateTimed)
-        self.selectFileGui.filePath.value =str(self.device.getFolder())
+        self.selectFileGui.filePath.value =str(self.device.getFolder())            
 
     def updateGui(self):
         ''' update the data in gui '''
+        if self.device.processor == 'GUI':
+            self.device.flagToProcess.set()
+        if not self.device.isReading:
+            self.runFileSet.call_button.text = 'Run'
         self.selectFileGui._auto_call = False
         self.selectFileGui.currentFileIdx.value = self.device.currentIdx +1
         self.selectFileGui._auto_call = True
