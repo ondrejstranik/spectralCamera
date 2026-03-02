@@ -38,10 +38,12 @@ class SCameraFromFile(BaseSequencer):
         self.fileTime = None # list of files time
         self.nFile = 0 # number of file
         self.idx = [] # indexes of files to process
+        self.currentIdx = None # current Idx, which is loaded
 
         # processor, which has to be free in order to send next image
         self.processor = None
         self.isReading = False # indicates if it is reading the images
+        self.flagToProcess = None
 
     def getWavelength(self):
         return self.wavelength        
@@ -98,7 +100,10 @@ class SCameraFromFile(BaseSequencer):
 
         if name== 'processor':
             self.processor = value
-            self.flagToProcess = self.processor.flagLoop
+            try:
+                self.flagToProcess = self.processor.flagLoop
+            except:
+                print(f'this processor does not have flagToProcess')
 
     def getParameter(self,name):
         ''' get parameter of the camera '''
@@ -125,11 +130,13 @@ class SCameraFromFile(BaseSequencer):
                     print(f'processing file # {ii}')
                     self.sImage = self.fileSIVideo.loadImage(self.fileName[ii])
                     self.t0 = self.fileTime[ii]/1e9
+                    self.currentIdx = ii
                     yield True
                     self.flagLoop.set()
 
                     # wait till the images are processed
-                    while not self.flagToProcess.is_set():
+                    while ((self.flagToProcess is not None) and 
+                    (not self.flagToProcess.is_set())):
                         time.sleep(0.003)
 
                     # stop reading the images
