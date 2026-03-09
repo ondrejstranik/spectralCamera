@@ -64,4 +64,59 @@ def test_fileSIVideo():
 
 
 
+@pytest.mark.GUI
+def test_gridSuperPixel():
+    ''' check if the class gridSuperPixel identify the grid and get the spectral blocks'''
 
+    import numpy as np
+    import skimage as ski
+    import napari
+    from spectralCamera.algorithm.gridSuperPixel import GridSuperPixel
+
+    #example image
+    myImage = ski.data.coins()
+
+    #generate grid (not ideal)
+    xx,yy = np.meshgrid(np.arange(20),np.arange(10))
+    xx = xx + 0.1*np.random.rand(*xx.shape)
+    yy = yy + 0.1*np.random.rand(*yy.shape)
+    xx = xx.reshape(-1)
+    yy = yy.reshape(-1)
+
+    position = xx[:,None]*np.array([7.1,20]) + yy[:,None]*np.array([20.1,7.1])
+    position = position[np.random.permutation(position.shape[0]),:]
+
+    # characterize the grid
+    gridSP = GridSuperPixel()
+    gridSP.setGridPosition(position)
+    gridSP.getGridInfo()
+    gridSP.getPixelIndex()
+    gridSP.getPositionOutsideImage(myImage)
+    spBlock = gridSP.getSpectraBlock(myImage)
+    alignedIm = gridSP.getAlignedImage(spBlock)
+
+    # prepare a sub selected  points
+    pointsSelect = (gridSP.imIdx[:,0]%1 == 0 ) & (gridSP.imIdx[:,1]%1 == 0 ) & gridSP.inside
+    points = gridSP.position[pointsSelect,:]
+
+    features = {'pointIndex0': gridSP.imIdx[pointsSelect,0],
+                'pointIndex1': gridSP.imIdx[pointsSelect,1]
+                }
+    text = {'string': '[{pointIndex0},{pointIndex1}]',
+            'translation': np.array([-30, 0])
+            }
+    # prepare pointImage 
+    pointImage = np.zeros_like(myImage).astype(bool)
+    pInt = gridSP.getPositionInt()
+    pointImage[pInt[gridSP.inside,0],pInt[gridSP.inside,1]] = True
+
+    # display the images
+    viewer = napari.Viewer()
+    viewer.add_image(myImage)
+    viewer.add_image(pointImage, opacity=0.5)
+    viewer.add_points(points,features=features,text=text, size= 50, opacity=0.5)
+
+    # display cut image
+    viewer2 = napari.Viewer()
+    viewer2.add_image(alignedIm)
+    napari.run()
