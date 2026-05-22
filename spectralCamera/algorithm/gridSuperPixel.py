@@ -61,7 +61,8 @@ class GridSuperPixel():
         self.xy00 = self.position[self.idx00,:]
 
     def shiftIdx00(self,new00Idx):
-        ''' shift the position of origin of the lattice '''
+        ''' shift the position of origin of the lattice
+         TODO: if new00Idx does not exist then it gives wrong idx00 and xy00 '''
         self.imIdx = self.imIdx - new00Idx
         # recalculate zero index
         #self.idx00 = np.arange(self.imIdx.shape[0])[(self.imIdx[:,0]==0) & (self.imIdx[:,1]==0)][0]
