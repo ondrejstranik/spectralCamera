@@ -13,6 +13,7 @@ import numpy as np
 from viscope.instrument.base.baseSequencer import BaseSequencer
 from viscope.instrument.base.baseInstrument import ThreadFlag
 from spectralCamera.algorithm.fileSIVideo import FileSIVideo
+from spectralCamera.algorithm.fileSILCTFVideo import FileSILCTFVideo
 import traceback
 
 
@@ -55,11 +56,21 @@ class SCameraFromFile(BaseSequencer):
         return self.sImage
 
     def setFolder(self,folder):
-        ''' set folder with the images and get info about the files'''
-        self.fileSIVideo.setFolder(folder)
-        self.wavelength = self.fileSIVideo.loadWavelength()
+        ''' set folder with the images and get info about the files
+        first try to read the images as .npy files (FileSIVideo), if none are found
+        fall back to reading them as LCTF tiff images (FileSILCTFVideo)'''
+        try:
+            self.fileSIVideo = FileSIVideo()
+            self.fileSIVideo.setFolder(folder)
+            self.fileName, self.fileTime = self.fileSIVideo.getImageInfo()
+            if len(self.fileName) == 0:
+                raise ValueError('no .npy spectral images found in the folder')
+        except:
+            self.fileSIVideo = FileSILCTFVideo()
+            self.fileSIVideo.setFolder(folder)
+            self.fileName, self.fileTime = self.fileSIVideo.getImageInfo()
 
-        self.fileName, self.fileTime = self.fileSIVideo.getImageInfo()
+        self.wavelength = self.fileSIVideo.loadWavelength()
         self.nFile = len(self.fileName)
         #self.fileTime = self.fileTime/1e9 # convert to seconds
         print(f'fileName {self.fileName}')

@@ -10,6 +10,8 @@ dependencies = [
         'pyqtgraph',
         'scikit-learn',
         'lxml_html_clean',
+        'tifffile',
+        'imagecodecs',
         ]
 requires-python='>=3.9'
 authors = [
