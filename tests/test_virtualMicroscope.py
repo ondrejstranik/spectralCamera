@@ -10,26 +10,53 @@ def test_simpleSpectralMicroscope():
     from viscope.gui.allDeviceGUI import AllDeviceGUI
     from spectralCamera.virtualSystem.simpleSpectralMicroscope import SimpleSpectralMicroscope
 
+    # set instruments
     camera1 = VirtualCamera()
     camera1.connect()
     camera1.setParameter('threadingNow',True)
 
+    # set forward model
     vM = SimpleSpectralMicroscope()
     vM.setVirtualDevice(camera1)
     vM.connect()
 
+    # set GUI
     viewer  = AllDeviceGUI(viscope)
     viewer.setDevice([camera1])
     
+    # run GUI
     viscope.run()
 
+    # disconnect devices
     camera1.disconnect()
     vM.disconnect()
+
+def test_simpleSpectralMicroscopeRGBCamera():
+    ''' check if virtual microscope works - show raw data'''
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
+    from viscope.main import viscope
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+
+    # set instruments
+    camera1 = WebCamera()
+    camera1.connect()
+    camera1.setParameter('threadingNow',True)
+
+    # set GUI
+    viewer  = AllDeviceGUI(viscope)
+    viewer.setDevice([camera1])
+
+    # run GUI
+    viscope.run()
+
+    # disconnect devices
+    camera1.disconnect()
+
+
 
 @pytest.mark.GUI
 def test_simpleSpectralMicroscope2():
     ''' check if virtual microscope works - show spectral and raw data'''
-    #from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
     from viscope.main import viscope
     from viscope.gui.allDeviceGUI import AllDeviceGUI
     from spectralCamera.gui.xywViewerGUI import XYWViewerGui
