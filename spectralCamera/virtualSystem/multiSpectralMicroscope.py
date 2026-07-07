@@ -27,14 +27,24 @@ class MultiSpectralMicroscope(BaseSystem):
 
         # set default spectral sample
         self.sample = Sample2()
-        self.sample.setSpectralDisk()
+        self.sample.setSpectralCell()
+        #self.sample.setSpectralDisk()
         #self.sample.setCalibrationImage()
 
-    def setVirtualDevice(self,sCamera=None, camera2=None):
+
+    def setVirtualDevice(self,sCamera=None, camera2=None, stage=None):
         ''' set instruments of the microscope '''
         self.device['sCamera'] = sCamera
         self.device['camera'] = sCamera.camera
         self.device['camera2'] = camera2
+        self.device['stage'] = stage
+
+    def _getSamplePositionXY(self):
+        ''' position of the sample, accounting for the stage position, if a stage is set'''
+        samplePositionXY = self.sample.position[0:2]
+        if self.device['stage'] is not None:
+            samplePositionXY = samplePositionXY + self.device['stage'].position[0:2]
+        return samplePositionXY
 
 
     def calculateVirtualFrameCamera(self):
@@ -45,6 +55,9 @@ class MultiSpectralMicroscope(BaseSystem):
         # adjust wavelength
         iFrame = Component2.spectraRangeAdjustment(iFrame,self.sample.getWavelength(),self.device['sCamera'].getWavelength())
 
+        # sample position, shifted by the stage, if set
+        samplePositionXY = self._getSamplePositionXY()
+
         # horizontal dispersion (RGB)
         # it will disperse the channel into single wavelength images aligned horizontally 
         if self.device['sCamera'].spectraCalibration.__class__.__name__ =='CalibrateRGBImage' and (
@@ -52,7 +65,7 @@ class MultiSpectralMicroscope(BaseSystem):
             
             oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height'),
                         self.device['camera'].getParameter('width')//iFrame.shape[0]))
-            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = samplePositionXY,
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
             oFrame = Component2.disperseHorizontal(oFrame)
 
@@ -64,7 +77,7 @@ class MultiSpectralMicroscope(BaseSystem):
 
             oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height')//2,
                         self.device['camera'].getParameter('width')//2))
-            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = samplePositionXY,
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
             oFrame = Component2.disperseIntoRGGBBlock(oFrame)
 
@@ -76,7 +89,7 @@ class MultiSpectralMicroscope(BaseSystem):
             _order = self.device['sCamera'].spectraCalibration.order 
             oFrame = np.zeros((iFrame.shape[0],self.device['camera'].getParameter('height')//_order,
                         self.device['camera'].getParameter('width')//_order))
-            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = samplePositionXY,
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'])
             oFrame = Component2.disperseIntoBlock(oFrame, blockShape=np.array([_order,_order]))
 
@@ -89,7 +102,7 @@ class MultiSpectralMicroscope(BaseSystem):
             sCal = self.device['sCamera'].spectraCalibration
             oFrame = np.zeros((iFrame.shape[0],*sCal.nYX))
             
-            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = np.array([0,0]),
+            Component.ideal4fImaging(iFrame=iFrame,oFrame=oFrame,iFramePosition = samplePositionXY,
                             magnification=1,iPixelSize=self.sample.pixelSize,oPixelSize=self.sample.pixelSize)
 
             (oFrame, position00) = Component2.disperseIntoLines(oFrame, gridVector = sCal.gridVector)
@@ -119,7 +132,7 @@ class MultiSpectralMicroscope(BaseSystem):
 
         # image it onto camera-chip
         oFrame = Component.ideal4fImagingOnCamera(camera=self.device['camera2'],iFrame=iFrame,
-                                iFramePosition=np.array([0,0]),iPixelSize=self.device['camera2'].DEFAULT['cameraPixelSize'],
+                                iFramePosition=self._getSamplePositionXY(),iPixelSize=self.device['camera2'].DEFAULT['cameraPixelSize'],
                                 magnification=1)
 
 
@@ -133,15 +146,18 @@ class MultiSpectralMicroscope(BaseSystem):
         ''' infinite loop to carry out the microscope state update
         it is a state machine, which should be run in separate thread '''
         while True:
-            yield 
-            if self.device['camera'].flagSetParameter.is_set():
+            yield
+            stageMoved = self.device['stage'] is not None and self.device['stage'].flagSetParameter.is_set()
+            if self.device['camera'].flagSetParameter.is_set() or stageMoved:
                 print(f'calculate virtual frame - camera ')
                 self.device['camera'].virtualFrame = self.calculateVirtualFrameCamera()
                 self.device['camera'].flagSetParameter.clear()
-            if self.device['camera2'].flagSetParameter.is_set():
+            if self.device['camera2'].flagSetParameter.is_set() or stageMoved:
                 print(f'calculate virtual frame - camera2')
                 self.device['camera2'].virtualFrame = self.calculateVirtualFrameCamera2()
                 self.device['camera2'].flagSetParameter.clear()
+            if stageMoved:
+                self.device['stage'].flagSetParameter.clear()
 
             time.sleep(0.03)
 

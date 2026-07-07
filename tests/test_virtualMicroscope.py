@@ -120,6 +120,7 @@ def test_simpleSpectralMicroscope3():
 @pytest.mark.GUI
 def test_multiSpectralMicroscope():
     from viscope.instrument.virtual.virtualCamera import VirtualCamera
+    from viscope.instrument.virtual.virtualStage import VirtualStage
     #from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualFilterCamera
     from spectralCamera.instrument.sCamera.sCameraGenerator import VirtualIFCamera
 
@@ -128,7 +129,9 @@ def test_multiSpectralMicroscope():
     from viscope.gui.allDeviceGUI import AllDeviceGUI
 
     from spectralCamera.virtualSystem.multiSpectralMicroscope import MultiSpectralMicroscope
-    
+
+    import numpy as np
+
     #camera
     camera2 = VirtualCamera(name='BWCamera')
     camera2.connect()
@@ -141,10 +144,16 @@ def test_multiSpectralMicroscope():
     camera = scs.camera
     sCamera = scs.sCamera
 
+    # stage
+    stage = VirtualStage('stage')
+    stage.connect()
+
     # virtual microscope
     vM = MultiSpectralMicroscope()
-    vM.setVirtualDevice(sCamera=sCamera, camera2=camera2)
+    vM.setVirtualDevice(sCamera=sCamera, camera2=camera2, stage=stage)
     vM.sample.setCalibrationImage()
+    vM.sample.setSpectralCell()
+    vM.sample.position = np.array([-150,-250])
     vM.connect()
 
     # main event loop
@@ -152,11 +161,12 @@ def test_multiSpectralMicroscope():
     newGUI.setDevice(sCamera)
 
     viewer  = AllDeviceGUI(viscope)
-    viewer.setDevice([camera,camera2])
+    viewer.setDevice([camera,camera2,stage])
 
     viscope.run()
 
     sCamera.disconnect()
     camera.disconnect()
     camera2.disconnect()
+    stage.disconnect()
     vM.disconnect()
