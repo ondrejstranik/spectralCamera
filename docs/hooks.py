@@ -20,7 +20,15 @@ def _generate():
     for path in sorted(SRC.rglob("*.py")):
         parts = path.relative_to(ROOT).with_suffix("").parts
 
+        if parts[1] == "utility":
+            # one-off analysis/research scripts, not library API to document
+            continue
+
         if parts[-1] == "__init__":
+            # many __init__.py exist only to mark a folder as a subpackage;
+            # skip those so they don't generate a blank landing page
+            if not path.read_text().strip():
+                continue
             parts = parts[:-1]
             if not parts:
                 continue
