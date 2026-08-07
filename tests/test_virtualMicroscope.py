@@ -170,3 +170,33 @@ def test_multiSpectralMicroscope():
     camera2.disconnect()
     stage.disconnect()
     vM.disconnect()
+
+def test_twoCameraMicroscopeReal():
+    ''' test that the twoCameras is working'''
+
+    from viscope.main import viscope
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+
+    from spectralCamera.instrument.camera.webCamera.webCamera import WebCamera
+    from spectralCamera.instrument.camera.esp32Camera.esp32Camera import ESP32Camera
+
+    cam1 = WebCamera(name='WebCamera',filterType='RGGB')
+    cam1.connect()
+    cam1.setParameter('exposureTime',300)
+    cam1.setParameter('nFrame', 1)
+    cam1.setParameter('threadingNow',True)
+
+    cam2 = ESP32Camera(name='ESP32Camera',filterType='RGGB')
+    cam2.connect()
+    cam2.setParameter('exposureTime',1)
+    cam2.setParameter('nFrames', 1)
+    cam2.setParameter('threadingNow',True)
+
+
+    viewer  = AllDeviceGUI(viscope)
+    viewer.setDevice([cam1,cam2])
+
+    viscope.run()
+
+    cam1.disconnect()
+    cam1.disconnect()

@@ -52,6 +52,23 @@ def test_webCamera2():
     camera.disconnect()
 
 @pytest.mark.GUI
+def test_esp32Camera():
+    ''' check if the esp32cam works with viscope gui '''
+    from viscope.gui.allDeviceGUI import AllDeviceGUI
+    from viscope.main import viscope
+    from spectralCamera.instrument.camera.esp32Camera.esp32Camera import ESP32Camera
+
+    camera = ESP32Camera(name='ESP32Camera',filterType='RGGB')
+    camera.connect()
+    camera.setParameter('threadingNow',True)
+
+    newGUI  = AllDeviceGUI(viscope)
+    newGUI.setDevice(camera)
+    viscope.run()
+
+    camera.disconnect()
+
+@pytest.mark.GUI
 def test_milCamera():
     ''' check if mil camera works with viscope gui '''
     from viscope.gui.allDeviceGUI import AllDeviceGUI
