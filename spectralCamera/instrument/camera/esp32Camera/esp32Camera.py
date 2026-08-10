@@ -309,7 +309,9 @@ class ESP32Camera(BaseCamera):
         which by default is also the saved profile name), or None if not
         connected to any wifi network. windows only (uses netsh) '''
         result = subprocess.run(['netsh','wlan','show','interfaces'],
-                                capture_output=True, text=True)
+                                capture_output=True, text=True, errors='replace')
+        if not result.stdout:
+            return None
         for line in result.stdout.splitlines():
             stripped = line.strip()
             # match the 'SSID' line but not 'BSSID'
@@ -346,12 +348,4 @@ class ESP32Camera(BaseCamera):
 #%%
 
 if __name__ == '__main__':
-    from spectralCamera.instrument.camera.esp32Camera.esp32Camera import ESP32Camera
-
-    cam = ESP32Camera(name='ESP32Camera',filterType='RGB')
-    cam.connect()
-    cam.setParameter('exposureTime',1)
-    cam.setParameter('nFrames', 1)
-
-    cam._displayStreamOfImages()
-    cam.disconnect()
+    pass
