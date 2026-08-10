@@ -1,14 +1,14 @@
 site_name: spectralCamera
-repo_url: https://github.com/ondrejstranik/spectralCamera
-repo_name: ondrejstranik/spectralCamera
-edit_uri: edit/main/docs/
 nav:
   - Home: index.md
   - Installation: installation.md
   - Software Architecture: architecture.md
   - Class Hierarchy: class_hierarchy.md
   - Examples: examples.md
-theme: readthedocs
+theme:
+  name: material
+  features:
+    - content.code.copy
 
 hooks:
   - docs/hooks.py
