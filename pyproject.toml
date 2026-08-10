@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name="spectralCamera"
 version="0.0.1"
 dependencies = [
-        'viscope @ git+https://github.com/ondrejstranik/viscope.git',
         'opencv-python',
         'scikit-learn',
         'lxml_html_clean',
@@ -30,6 +29,9 @@ classifiers = [
 docs = [
         'mkdocs',
         'mkdocstrings[python]',
+        ]
+all = [
+        'viscope @ git+https://github.com/ondrejstranik/viscope.git',
         ]
 
 [project.urls]
