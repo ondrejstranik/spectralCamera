@@ -223,7 +223,8 @@ class SViewer(QObject):
             if resetView:
                 self.viewer.reset_view()
             self.drawSpectraGraph()
-        if (modified=='point') or (modified=='all'):
+#        if (modified=='point') or (modified=='all'):
+        if (modified=='point'):
             self.drawSpectraGraph()
         end = timer()
         print(f'viewer redraw evaluation time {end -start} s')
