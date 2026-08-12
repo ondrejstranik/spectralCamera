@@ -309,9 +309,11 @@ class XYWViewer(QObject):
 
     def setImage(self, image):
         ''' set the image '''
+        resetView = self.spectraLayer.data.shape != image.shape
         self.xywImage = image
         self.spectraLayer.data = self.xywImage
-        #self.viewer.reset_view()
+        if resetView:
+            self.viewer.reset_view()
         self.calculateSpectra()
         self.updateSpectraGraph()
         self.updateHistogram()

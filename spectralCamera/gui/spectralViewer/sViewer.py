@@ -217,8 +217,12 @@ class SViewer(QObject):
         ''' only redraw the images, spectra. It does not recalculate it '''
         start = timer()
         if (modified=='image') or (modified=='all'):
-            self.spectraLayer.data = self.spotSpectra.getImage()
-            self.drawSpectraGraph()           
+            newImage = self.spotSpectra.getImage()
+            resetView = self.spectraLayer.data.shape != newImage.shape
+            self.spectraLayer.data = newImage
+            if resetView:
+                self.viewer.reset_view()
+            self.drawSpectraGraph()
         if (modified=='point') or (modified=='all'):
             self.drawSpectraGraph()
         end = timer()
