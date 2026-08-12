@@ -89,7 +89,20 @@ class XYWViewer(QObject):
         
   
         # set some parameters of napari
-        #self.spectraLayer._keep_auto_contrast = True
+        # keep the contrast limits auto-scaling to the data on every update
+        self.spectraLayer._keep_auto_contrast = True
+        # best-effort: also press the actual 'continuous' auto-contrast
+        # button so its icon in the layer controls panel matches the state
+        # set above. The path into napari's private Qt widgets differs by
+        # napari version (e.g. controls.autoScaleBar pre-0.6 vs.
+        # controls._contrast_limits_control.auto_scale_bar from 0.6.6), so
+        # don't let a lookup failure on either break the auto-contrast itself
+        try:
+            controls = self.viewer.window._qt_viewer.controls.widgets[self.spectraLayer]
+            autoScaleBar = getattr(controls, 'autoScaleBar', None) or controls._contrast_limits_control.auto_scale_bar
+            autoScaleBar._auto_btn.setChecked(True)
+        except (KeyError, AttributeError):
+            pass
         self.viewer.layers.selection.active = self.spectraLayer
 
         # add widget spectraGraph
