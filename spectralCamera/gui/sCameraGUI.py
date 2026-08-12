@@ -23,7 +23,8 @@ class SCameraGUI(BaseGUI):
     def __setWidget(self):
         ''' prepare the gui '''
 
-        @magicgui(aberrationCorrection={"label": "image correction"},
+        @magicgui(call_button='Set',
+                  aberrationCorrection={"label": "image correction"},
                   spectraSigma={"label": "spectral smoothing"},
                   darkValue = {"label": "average image dark value"},
                   dTimeCamera = {"widget_type":"Label"},
