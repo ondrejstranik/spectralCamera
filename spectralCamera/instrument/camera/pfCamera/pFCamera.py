@@ -49,9 +49,8 @@ class PFCamera(BaseCamera):
         self.startAcquisition()
 
     def disconnect(self):
-        super().disconnect()
-
-        self.stopAcquisition()
+        self.stopAcquisition()  # freeze stream first so GetNextBuffer unblocks
+        super().disconnect()    # then signal worker thread to stop
         self.cam.DisconnectCamera()
 
     def startAcquisition(self):
@@ -63,12 +62,14 @@ class PFCamera(BaseCamera):
     def getLastImage(self):
         myframe = None
         for ii in range(self.nFrame):
-            if ii==0: _, myframe= self.cam.getLastImage(copyImage=True)
+            _, frame = self.cam.getLastImage(copyImage=True)
+            if frame is None:
+                return self.rawImage  # stream closed, return last valid image
+            if ii == 0:
+                myframe = frame * 1.0
             else:
-                _, temporary_frame = self.cam.getLastImage(copyImage=True)
-                myframe = myframe + temporary_frame*1.0
-
-        self.rawImage = myframe/self.nFrame
+                myframe = myframe + frame * 1.0
+        self.rawImage = myframe / self.nFrame
         return self.rawImage
 
     def _getExposureTime(self):

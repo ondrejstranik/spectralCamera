@@ -415,6 +415,8 @@ class Photonfocus:
                 time.sleep(self.exposureTime_um/1e6/10)
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
                 print(f'waiting for valid image {pfResult}')
+                if 'STREAM_CLOSED' in str(pfResult):
+                    break
                 #print(waitForValidImage)
 
             if pfResult == pf.Error.NONE:
