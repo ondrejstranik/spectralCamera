@@ -8,6 +8,7 @@ components: camera
 #%%
 
 import time
+import traceback
 
 from viscope.virtualSystem.base.baseSystem import BaseSystem
 from viscope.virtualSystem.component.component import Component
@@ -146,20 +147,23 @@ class MultiSpectralMicroscope(BaseSystem):
         ''' infinite loop to carry out the microscope state update
         it is a state machine, which should be run in separate thread '''
         while True:
-            yield
-            stageMoved = self.device['stage'] is not None and self.device['stage'].flagSetParameter.is_set()
-            if self.device['camera'].flagSetParameter.is_set() or stageMoved:
-                print(f'calculate virtual frame - camera ')
-                self.device['camera'].virtualFrame = self.calculateVirtualFrameCamera()
-                self.device['camera'].flagSetParameter.clear()
-            if self.device['camera2'].flagSetParameter.is_set() or stageMoved:
-                print(f'calculate virtual frame - camera2')
-                self.device['camera2'].virtualFrame = self.calculateVirtualFrameCamera2()
-                self.device['camera2'].flagSetParameter.clear()
-            if stageMoved:
-                self.device['stage'].flagSetParameter.clear()
-
-            time.sleep(0.03)
+            try:
+                yield
+                stageMoved = self.device['stage'] is not None and self.device['stage'].flagSetParameter.is_set()
+                if self.device['camera'].flagSetParameter.is_set() or stageMoved:
+                    print(f'calculate virtual frame - camera ')
+                    self.device['camera'].virtualFrame = self.calculateVirtualFrameCamera()
+                    self.device['camera'].flagSetParameter.clear()
+                if self.device['camera2'].flagSetParameter.is_set() or stageMoved:
+                    print(f'calculate virtual frame - camera2')
+                    self.device['camera2'].virtualFrame = self.calculateVirtualFrameCamera2()
+                    self.device['camera2'].flagSetParameter.clear()
+                if stageMoved:
+                    self.device['stage'].flagSetParameter.clear()
+            except:
+                print(f"An exception occurred in thread of {self.__class__.__name__}:\n")
+                traceback.print_exc()
+            time.sleep(self.loopDelay)
 
         
 
