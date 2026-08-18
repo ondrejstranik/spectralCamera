@@ -3,9 +3,10 @@ class for viewing spectra in specta-spatial image
 '''
 import pyqtgraph as pg
 from PyQt5.QtGui import QColor, QPen
-from qtpy.QtWidgets import QLabel, QSizePolicy, QWidget
+from qtpy.QtWidgets import QLabel, QSizePolicy, QWidget, QApplication
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
+from qtpy.QtCore import QTimer
 from viscope.gui.napariViewer.napariViewer import NapariViewer
 from qtpy.QtCore import QObject
 from spectralCamera.algorithm.spotSpectraSimple import SpotSpectraSimple
@@ -25,6 +26,8 @@ class SViewer(QObject):
                'maxNLine': 200} # maxNLine ... max number of line plotted in the graph
 
     sigUpdateData = Signal()
+    sigSelectionChanged = Signal()
+    sigColorChanged = Signal()
 
     def __init__(self,image=None, wavelength= None, **kwargs):
         ''' initialise the class '''
@@ -92,6 +95,13 @@ class SViewer(QObject):
             pass
         # add point layer
         self.pointLayer = self.viewer.add_points(name='points', size=5, face_color='red')
+        # annotate each point with its index
+        self.pointLayer.features = {'names': []}
+        self.pointLayer.text = {
+            'string': '{names}',
+            'size': 12,
+            'color': 'green',
+            'translation': np.array([-5, 0])}
         # add text overlay
         self.viewer.text_overlay.visible = True
         self.viewer.text_overlay.text = ' nm'
@@ -124,10 +134,28 @@ class SViewer(QObject):
         if self.dockWidgetData is not None:
             self.viewer.window._qt_window.tabifyDockWidget(self.dockWidgetData,dw)
         self.dockWidgetData = dw
-        self.viewer.window._qt_window.resizeDocks([dw], [500], Qt.Vertical)
         # register the graph in menu
         if self.window_menu is not None:
             self.window_menu.addAction(dw.toggleViewAction())
+
+        # by default, make the spectra graph as wide as the image canvas.
+        # deferred to let Qt/napari finish laying out the window first, since
+        # the width read out during construction is not yet the final one;
+        # resizeDocks() does not work here because the spectra dock is alone
+        # in its area (nothing to redistribute space with), so the width is
+        # instead forced with a temporary fixed width, then released so the
+        # dock stays user-resizable
+        def _matchSpectraGraphWidth():
+            width = self.viewer.window._qt_window.width() // 2
+            self.dockWidgetData.setFixedWidth(width)
+            QApplication.instance().processEvents()
+            self.dockWidgetData.setMinimumWidth(0)
+            self.dockWidgetData.setMaximumWidth(16777215)
+            # the image canvas has just been resized by the width adjustment
+            # above; reset the view now so the image fits the final canvas
+            # size instead of the (wider) one it had before this ran
+            self.viewer.reset_view()
+        QTimer.singleShot(0, _matchSpectraGraphWidth)
 
         # connect events
         # connect changes of the slicer in the viewer
@@ -140,13 +168,20 @@ class SViewer(QObject):
         )
         self.pointLayer._face.events.current_color.connect(self.colorChanged)
 
-        # connect signal for a changes in the points and their color
-        self.pointLayer._face.events.current_color.connect(lambda: self.sigUpdateData.emit())
+        # connect signal for a change of a point's color - kept separate from
+        # sigUpdateData (points added/moved/deleted) since it needs different
+        # handling downstream (e.g. reapplying current_color to the selection)
+        self.pointLayer._face.events.current_color.connect(lambda: self.sigColorChanged.emit())
+        # connect signal for a change in the number/position of the points
         # avoid multiple signal emission by comparing the arrays
         self.pointLayer.events.data.connect(
             lambda: self.sigUpdateData.emit() if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data)
             else None
-        )            
+        )
+
+        # connect signal for a change of the spot selection (e.g. clicking points in napari)
+        self.pointLayer.selected_data.events.items_changed.connect(
+            lambda *_: self.sigSelectionChanged.emit())
 
     def colorChanged(self):
         ''' change the color of the spectral with the change of the point color
@@ -199,11 +234,17 @@ class SViewer(QObject):
         ''' calculate the spectra '''
         self.spotSpectra.calculateSpectra()
 
+    def updatePointAnnotations(self):
+        ''' keep the point index annotation in sync with the current points '''
+        self.pointLayer.features = {'names': [str(ii) for ii in range(len(self.pointLayer.data))]}
+
     def pointChanged(self):
         ''' updates the points, calculate spectra and draw the spectra'''
         print('recalculating mask')
         self.spotSpectra.setSpot(self.pointLayer.data)
         self.spotSpectra.setMask()
+
+        self.updatePointAnnotations()
 
         self.calculateSpectra()
         self.redraw(modified='point')
