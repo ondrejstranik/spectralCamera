@@ -19,6 +19,7 @@ import traceback
 
 class SCameraFromFile(BaseSequencer):
     ''' class to emulating sCamera for delivering saved spectral images
+    the image delivery is synchronised with processing of the images
     '''
     DEFAULT = {'name': 'SCameraFromFile'
                 }
@@ -155,12 +156,8 @@ class SCameraFromFile(BaseSequencer):
                     while ((self.flagToProcess is not None) and 
                     (not self.flagToProcess.is_set()) and
                     (self.isReading)):
-                        time.sleep(0.003)
-                    #while not self.flagToProcess.is_set():
-                    #    time.sleep(0.003)
+                        time.sleep(self.loopDelay)
                     self.flagToProcess.clear()
-
-
 
                     # stop reading the images
                     if not self.isReading:

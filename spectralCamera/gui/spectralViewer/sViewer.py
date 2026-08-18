@@ -160,28 +160,33 @@ class SViewer(QObject):
         # connect events
         # connect changes of the slicer in the viewer
         self.viewer.dims.events.current_step.connect(self.updateTextOverlay)
-        # connect changes in data in this layer for update in main tread
-        # avoid multiple signal emission by comparing the arrays
-        self.pointLayer.events.data.connect(
-            lambda: self.pointChanged() if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data)
-            else None
-        )
+        # connect changes in data in this layer for update in main thread.
+        # pointChanged() and sigUpdateData both need to react to the SAME
+        # "did the data actually change" check; done once here in a single
+        # handler, since pointChanged() updates spotSpectra.spotPosition to
+        # match pointLayer.data as a side effect - if that check were done
+        # separately for each reaction (as two independent connections),
+        # whichever ran first would make spotSpectra.spotPosition catch up,
+        # causing the second one to always see "no change" and never fire
+        self.pointLayer.events.data.connect(lambda: self._onPointDataChanged())
         self.pointLayer._face.events.current_color.connect(self.colorChanged)
 
         # connect signal for a change of a point's color - kept separate from
         # sigUpdateData (points added/moved/deleted) since it needs different
         # handling downstream (e.g. reapplying current_color to the selection)
         self.pointLayer._face.events.current_color.connect(lambda: self.sigColorChanged.emit())
-        # connect signal for a change in the number/position of the points
-        # avoid multiple signal emission by comparing the arrays
-        self.pointLayer.events.data.connect(
-            lambda: self.sigUpdateData.emit() if not np.array_equal(self.spotSpectra.spotPosition,self.pointLayer.data)
-            else None
-        )
 
         # connect signal for a change of the spot selection (e.g. clicking points in napari)
         self.pointLayer.selected_data.events.items_changed.connect(
             lambda *_: self.sigSelectionChanged.emit())
+
+    def _onPointDataChanged(self):
+        ''' react once to a points-layer data change (add/move/delete),
+        checked a single time so both reactions agree on whether anything
+        actually changed '''
+        if not np.array_equal(self.spotSpectra.spotPosition, self.pointLayer.data):
+            self.pointChanged()
+            self.sigUpdateData.emit()
 
     def colorChanged(self):
         ''' change the color of the spectral with the change of the point color

@@ -41,13 +41,20 @@ class SCameraFromFileGUI(BaseGUI):
                 if str(filePath) != str(oldFolder):
                         self.device.setFolder(str(filePath))
                         print(f'setting new folder{filePath} ')
+                # keep the widget's own display in sync - calling this
+                # FunctionGui directly with a kwarg does not update its
+                # bound widget's value on its own
+                selectFileGui.filePath.value = str(filePath)
 
-            self.runFileSet.fileSetIdx.max = self.device.nFile
-            self.runFileSet.fileSetIdx.value = (1,self.device.nFile)
+            # nFile can be 0 if the folder has no matching files yet; fall
+            # back to a valid (min 1) range instead of crashing on it
+            self.runFileSet.fileSetIdx.max = max(self.device.nFile, 1)
+            self.runFileSet.fileSetIdx.value = (1, max(self.device.nFile, 1))
             selectFileGui.currentFileIdx.label = f"out of {self.device.nFile}, current #: "
-            selectFileGui.currentFileIdx.max = self.device.nFile
+            selectFileGui.currentFileIdx.max = max(self.device.nFile, 1)
             if currentFileIdx<1: currentFileIdx=1
-            self.device.startReadingImages(idx=[currentFileIdx-1])
+            if self.device.nFile > 0:
+                self.device.startReadingImages(idx=[currentFileIdx-1])
 
         @magicgui(call_button= "Run",
                   fileSetIdx = {"label": "out of 1, current #: ",
@@ -83,7 +90,6 @@ class SCameraFromFileGUI(BaseGUI):
 
         # connect the signals
         self.device.worker.yielded.connect(self.guiUpdateTimed)
-        self.selectFileGui.filePath.value =str(self.device.getFolder())            
 
     def updateGui(self):
         ''' update the data in gui '''
