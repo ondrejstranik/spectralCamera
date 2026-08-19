@@ -62,23 +62,41 @@ class FileSILCTFVideo:
         return frameDict
 
     def loadWavelength(self,folder=None):
-        ''' loading wavelength, extracted from the file names present in the folder'''
+        ''' loading wavelength, extracted from the file names present in the folder.
+        wavelength 0 is a dark-current reference image, not an actual
+        acquisition wavelength, and is excluded '''
         frameDict = self._groupFilesByFrame(folder)
 
-        wlSet = {wl for group in frameDict.values() for wl,_ in group}
+        wlSet = {wl for group in frameDict.values() for wl,_ in group if wl != 0}
         wavelength = np.array(sorted(wlSet))
         return wavelength
 
     def loadImage(self,fileNameGroup, folder=None):
         ''' loading the spectral image from a group of single-wavelength tiff files
-        fileNameGroup: list of fileNames sorted according to the wavelength '''
+        fileNameGroup: list of fileNames sorted according to the wavelength.
+        the file at wavelength 0 is a dark-current image: it is subtracted
+        from every other wavelength of the frame and excluded from the
+        returned image stack '''
         if folder is not None: self.folder = folder
 
+        pattern = re.compile(self.DEFAULT['nameSet']['regexp'], re.IGNORECASE)
+
         try:
-            for ii,fName in enumerate(fileNameGroup):
-                _image = tifffile.imread(str(Path(self.folder) / fName))
-                if ii == 0:
-                    sImage = np.zeros((len(fileNameGroup),*_image.shape))
+            darkImage = None
+            images = []
+            for fName in fileNameGroup:
+                wl = int(pattern.search(fName).group('wl'))
+                _image = tifffile.imread(str(Path(self.folder) / fName)).astype(float)
+                if wl == 0:
+                    darkImage = _image
+                else:
+                    images.append(_image)
+
+            if darkImage is not None:
+                images = [_image - darkImage for _image in images]
+
+            sImage = np.zeros((len(images),*images[0].shape))
+            for ii,_image in enumerate(images):
                 sImage[ii,...] = _image
 
         except:
