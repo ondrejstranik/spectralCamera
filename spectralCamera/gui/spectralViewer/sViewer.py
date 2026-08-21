@@ -68,7 +68,13 @@ class SViewer(QObject):
         self.linePlotList = []
         self.penList = []
         self.maxNLine = SViewer.DEFAULT['maxNLine']
-        
+
+        # per-spot metadata, shape-compatible with plim.algorithm.spotData.
+        # SpotData.table. Gets replaced-by-alias (plasmonViewer.table =
+        # positionTrack.sD.table) by the owning GUI once a real SpotData
+        # exists; this default just keeps SViewer usable stand-alone.
+        self.table = {'name': [], 'color': [], 'visible': []}
+
         # set this qui of this class
         SViewer._setWidget(self)
 
@@ -180,6 +186,17 @@ class SViewer(QObject):
         self.pointLayer.selected_data.events.items_changed.connect(
             lambda *_: self.sigSelectionChanged.emit())
 
+        # 'v' toggles visibility of the currently selected spot(s). Bound on
+        # self.viewer (not pointLayer) so it fires regardless of which layer
+        # is currently active - pointLayer usually isn't (spectraLayer is
+        # kept active for its own controls), so a binding scoped to
+        # pointLayer would rarely trigger. Verified this doesn't collide
+        # with napari's own default 'v' ('toggle_selected_visibility', which
+        # hides/shows the whole active layer) even with the points layer
+        # explicitly made active - the viewer-level keymap takes this key
+        # first regardless.
+        self.viewer.bind_key('v', lambda viewer: self.toggleVisibility(), overwrite=True)
+
     def _onPointDataChanged(self):
         ''' react once to a points-layer data change (add/move/delete),
         checked a single time so both reactions agree on whether anything
@@ -191,15 +208,66 @@ class SViewer(QObject):
     def colorChanged(self):
         ''' change the color of the spectral with the change of the point color
         very cumbersome way due to the internal processes in napari'''
-        # it is necessary to remember it 
-        _aux = self.pointLayer.face_color[list(self.pointLayer.selected_data)]
+        idx = list(self.pointLayer.selected_data)
+
+        # record the picked color into self.table (aliased to SpotData.table
+        # once wired up by the owning GUI) for the currently selected point(s)
+        try:
+            hexColor = '#{:02x}{:02x}{:02x}'.format(
+                *(np.asarray(self.pointLayer._face.current_color[:3]) * 255).astype(int))
+            for ii in idx:
+                self.table['color'][ii] = hexColor
+        except Exception:
+            print('error updating table color from current_color')
+            traceback.print_exc()
+
+        # it is necessary to remember it
+        _aux = self.pointLayer.face_color[idx]
 
         # this allow to draw spectral lines with proper color
         # however it will stop redrawing the points with a new color
-        self.pointLayer.face_color[list(self.pointLayer.selected_data)] = self.pointLayer._face.current_color
+        self.pointLayer.face_color[idx] = self.pointLayer._face.current_color
         self.redraw(modified='point')
         # therefore the face_colors are set back only to be put internally to new values
-        self.pointLayer.face_color[list(self.pointLayer.selected_data)] = _aux
+        self.pointLayer.face_color[idx] = _aux
+
+    def syncPointsFromTable(self):
+        ''' push self.table['color']/['visible']/['name'] onto pointLayer.
+        Call whenever the table was edited via an external widget (e.g.
+        SignalWidget/InfoWidget) rather than via the viewer itself. '''
+        rgb = self.table.get('color')
+        if not rgb:
+            return
+        vis = self.table['visible']
+        _color = [rgb[ii] + 'ff' if vis[ii] == 'True' else rgb[ii] + '00' for ii in range(len(rgb))]
+
+        # defensive guard in case this bulk push ever fires current_color as
+        # a side effect (not observed directly, but this costs nothing and
+        # prevents it from being misread as a genuine colour pick made in
+        # the viewer, which would otherwise re-enter colorChanged())
+        with self.pointLayer._face.events.current_color.blocker():
+            self.pointLayer.face_color = _color
+
+        try:
+            self.pointLayer.features = {'names': list(self.table['name'])}
+        except Exception:
+            print('error updating point annotations from table')
+            traceback.print_exc()
+
+    def toggleVisibility(self):
+        ''' toggle visibility of the currently selected spot(s) - bound to
+        the 'v' key. Writes into self.table['visible'] (aliased to
+        SpotData.table once wired up by the owning GUI), pushes the result
+        onto the viewer, and notifies the rest of the GUI via sigUpdateData
+        (the same signal used for point add/move/delete, since the
+        downstream handling - resync widgets, redraw - is identical). '''
+        idx = list(self.pointLayer.selected_data)
+        if not idx:
+            return
+        for ii in idx:
+            self.table['visible'][ii] = 'False' if self.table['visible'][ii] == 'True' else 'True'
+        self.syncPointsFromTable()
+        self.sigUpdateData.emit()
 
     def drawSpectraGraph(self):
         ''' draw all lines in the spectraGraph '''
@@ -214,6 +282,12 @@ class SViewer(QObject):
 
         # loop over all data lines
         for ii in np.arange(nSig):
+            # hide the line for spots marked not-visible (e.g. via the 'v'
+            # key toggle), same convention as SignalWidget.drawGraph()
+            try:
+                isVisible = self.table['visible'][ii] == 'True'
+            except (IndexError, KeyError, TypeError):
+                isVisible = True
             try:
                 self.penList[ii].setColor(QColor.fromRgbF(*list(
                     self.pointLayer.face_color[ii])))
@@ -224,7 +298,7 @@ class SViewer(QObject):
                 self.linePlotList[ii].setData(self.spotSpectra.wavelength,
                                               self.spotSpectra.getSpectra()[ii],
                                               pen = self.penList[ii])
-                self.linePlotList[ii].show()
+                self.linePlotList[ii].show() if isVisible else self.linePlotList[ii].hide()
             except:
                 print('error occurred in drawSpectraGraph - could not set data')
                 traceback.print_exc()
@@ -240,8 +314,26 @@ class SViewer(QObject):
         self.spotSpectra.calculateSpectra()
 
     def updatePointAnnotations(self):
-        ''' keep the point index annotation in sync with the current points '''
-        self.pointLayer.features = {'names': [str(ii) for ii in range(len(self.pointLayer.data))]}
+        ''' keep the point label annotation in sync with the current points '''
+        self.pointLayer.features = {'names': list(self.table['name'])}
+
+    def _growTableToPointCount(self):
+        ''' resize self.table's per-spot lists in place to match
+        pointLayer.data, preserving existing name/visible entries by
+        position and defaulting new ones. color is always re-read fresh
+        from pointLayer.face_color (napari has already correctly reindexed
+        it on add/delete; name/visible have no such array to read back
+        from, so a point deleted from the middle can still shift name/
+        visible out of alignment - a pre-existing limitation, not
+        introduced here). self.table is mutated by key, never rebound, so
+        any alias to it (e.g. SpotData.table) stays intact. '''
+        nSpot = len(self.pointLayer.data)
+        oldName = self.table.get('name') or []
+        oldVisible = self.table.get('visible') or []
+        self.table['color'] = ['#{:02x}{:02x}{:02x}'.format(*c) for c in
+                                (self.pointLayer.face_color[:, :3] * 255).astype(int)]
+        self.table['name'] = [oldName[ii] if ii < len(oldName) else str(ii) for ii in range(nSpot)]
+        self.table['visible'] = [oldVisible[ii] if ii < len(oldVisible) else 'True' for ii in range(nSpot)]
 
     def pointChanged(self):
         ''' updates the points, calculate spectra and draw the spectra'''
@@ -249,6 +341,7 @@ class SViewer(QObject):
         self.spotSpectra.setSpot(self.pointLayer.data)
         self.spotSpectra.setMask()
 
+        self._growTableToPointCount()
         self.updatePointAnnotations()
 
         self.calculateSpectra()
