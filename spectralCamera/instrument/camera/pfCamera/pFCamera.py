@@ -39,6 +39,7 @@ class PFCamera(BaseCamera):
         self.cam.PrepareCamera(cameraIdx=self.cameraIdx)
         #self.cam.SetParameter("PixelFormat", "Mono12")
         #self.cam.SetParameter("PixelFormat", "Mono12Packed")
+        self.cam.SetParameter("AnalogGain","Gain1_2x") # easy to see saturation
 
         self.setParameter('exposureTime',self.exposureTime)
 
