@@ -195,6 +195,9 @@ class Photonfocus:
 
     def SetDefaultParameters(self):
         ''' set default parameters of the camera '''
+        # ensure free-run (continuous) acquisition regardless of prior camera state
+        self.SetParameter("TriggerMode", "Off")
+
         #Set pixel format
         self.SetParameter("PixelFormat",self.pixelFormat)
 
@@ -349,7 +352,7 @@ class Photonfocus:
     def _SetupStream(self,ringSizeBuffer=None):
         #Create stream depending on camera type
         if self.cam_info.GetType() == pf.CameraType.CAMTYPE_GEV:
-            self.pfStream = pf.PFStreamGEV(True, True, False, True)
+            self.pfStream = pf.PFStreamGEV(True, True, True, True)
             print('camera is  GEV type')
         else:
             self.pfStream = pf.PFStreamU3V()
@@ -415,7 +418,7 @@ class Photonfocus:
                 time.sleep(self.exposureTime_um/1e6/10)
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
                 print(f'waiting for valid image {pfResult}')
-                if 'STREAM_CLOSED' in str(pfResult):
+                if 'STREAM_CLOSED' in str(pfResult) or 'TIMEOUT' in str(pfResult):
                     break
                 #print(waitForValidImage)
 
