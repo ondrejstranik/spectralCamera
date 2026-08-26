@@ -9,7 +9,9 @@ import time
 import numpy as np
 from pathlib import Path
 import re
-import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FileSIVideo:
     ''' class to save load time series of spectral Images into a folder '''
@@ -51,8 +53,7 @@ class FileSIVideo:
             np.save(self.folder + '/' + self.DEFAULT['nameSet']['image'].format(timeTag),sImage)
 
         except:
-            print('error in class FileSIVideo, function saveImage - could not save image')
-            traceback.print_exc()
+            logger.exception('error in class FileSIVideo, function saveImage - could not save image')
 
     def loadImage(self,fileName, folder=None):
         ''' loading the spectral image'''

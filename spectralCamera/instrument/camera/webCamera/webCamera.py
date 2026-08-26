@@ -9,9 +9,12 @@ Created on Mon Nov 15 12:08:51 2021
 
 import os
 import time
+import logging
 import numpy as np
 import cv2
 from viscope.instrument.base.baseCamera import BaseCamera
+
+logger = logging.getLogger(__name__)
 
 class WebCamera(BaseCamera):
     ''' class to control usb/integrated camera. wrapper for cv2 '''
@@ -104,20 +107,20 @@ class WebCamera(BaseCamera):
         # the expression for the value of in cap.set is following:
         # 2**(cap.set-value-) = value [s]) 
 
-        print(f'set Exposure Time {value}')
-        print(f'set cap.set-value- {np.log2(value/1000)}')        
+        logger.debug(f'set Exposure Time {value}')
+        logger.debug(f'set cap.set-value- {np.log2(value/1000)}')
         self.cap.set(cv2.CAP_PROP_EXPOSURE, np.log2(value/1000))
 
         self.exposureTime = value
 
     def _getExposureTime(self):
         _exposureTime = self.cap.get(cv2.CAP_PROP_EXPOSURE)
-        print(f'cap.set-value- {_exposureTime}')
+        logger.debug(f'cap.set-value- {_exposureTime}')
         if _exposureTime >0:
             self.exposureTime = _exposureTime
         else:
             self.exposureTime = 2**(_exposureTime)*1000
-        print(f'self.exposureTime {self.exposureTime}')
+        logger.debug(f'self.exposureTime {self.exposureTime}')
 
         return self.exposureTime
 

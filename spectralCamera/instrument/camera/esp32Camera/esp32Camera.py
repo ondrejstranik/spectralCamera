@@ -10,10 +10,13 @@ import time
 import subprocess
 import tempfile
 import threading
+import logging
 import numpy as np
 import cv2
 import requests
 from viscope.instrument.base.baseCamera import BaseCamera
+
+logger = logging.getLogger(__name__)
 
 class ESP32Camera(BaseCamera):
     ''' class to control an ESP32-CAM board running the webCamCom firmware
@@ -183,10 +186,10 @@ class ESP32Camera(BaseCamera):
         while not self._readerStop:
             try:
                 frame = self._decodeNextFrame()
-            except Exception as error:
+            except Exception:
                 if self._readerStop:
                     break
-                print(f'esp32cam stream error ({error}), reconnecting...')
+                logger.exception('esp32cam stream error, reconnecting...')
                 self._reopenStream()
                 continue
 
@@ -296,7 +299,7 @@ class ESP32Camera(BaseCamera):
         for _ in range(maxAttempt):
             try:
                 if requests.get(f'http://{self.ip}:{self.controlPort}/ping', timeout=1).ok:
-                    print(f'connected to wifi {self.ssid}, esp32cam reachable at {self.ip}')
+                    logger.info(f'connected to wifi {self.ssid}, esp32cam reachable at {self.ip}')
                     return
             except requests.exceptions.RequestException:
                 pass
@@ -330,7 +333,7 @@ class ESP32Camera(BaseCamera):
             return
         subprocess.run(['netsh','wlan','connect',f'name={self._previousWifi}'],
                         capture_output=True)
-        print(f'reconnecting to previous wifi {self._previousWifi}')
+        logger.info(f'reconnecting to previous wifi {self._previousWifi}')
 
     def _setParameterESP32(self, parameter, value):
         ''' set a parameter of the esp32cam over http

@@ -9,12 +9,14 @@ Created on Mon Nov 15 12:08:51 2021
 
 import os
 import time
+import logging
 import numpy as np
 from viscope.instrument.base.baseSequencer import BaseSequencer
 from viscope.instrument.base.baseInstrument import ThreadFlag
 from spectralCamera.algorithm.fileSIVideo import FileSIVideo
 from spectralCamera.algorithm.fileSILCTFVideo import FileSILCTFVideo
-import traceback
+
+logger = logging.getLogger(__name__)
 
 
 class SCameraFromFile(BaseSequencer):
@@ -74,7 +76,7 @@ class SCameraFromFile(BaseSequencer):
         self.wavelength = self.fileSIVideo.loadWavelength()
         self.nFile = len(self.fileName)
         #self.fileTime = self.fileTime/1e9 # convert to seconds
-        print(f'fileName {self.fileName}')
+        logger.info(f'fileName {self.fileName}')
 
     def getFolder(self):
         ''' get current folder'''
@@ -89,8 +91,8 @@ class SCameraFromFile(BaseSequencer):
         if idx is None:
             return
 
-        print('starting reading images')
-        print(f' idx {self.idx}')
+        logger.info('starting reading images')
+        logger.debug(f' idx {self.idx}')
         self.isReading = True
 
     def stopReadingImages(self):
@@ -121,7 +123,7 @@ class SCameraFromFile(BaseSequencer):
                 try:
                     self.flagToProcess = self.processor.flagLoop
                 except:
-                    print(f'this processor does not have flagToProcess')
+                    logger.warning('this processor does not have flagToProcess')
 
     def getParameter(self,name):
         ''' get parameter of the camera '''
@@ -136,7 +138,7 @@ class SCameraFromFile(BaseSequencer):
 
     def loop(self):
         ''' process new data file'''
-        print('running processData loop in sCamera from File')
+        logger.info('running processData loop in sCamera from File')
         
         while True:
             #wait till new sequence will come                        
@@ -145,7 +147,7 @@ class SCameraFromFile(BaseSequencer):
                 time.sleep(0.1)
             try:
                 for ii in self.idx:
-                    print(f'processing file # {ii}')
+                    logger.debug(f'processing file # {ii}')
                     self.sImage = self.fileSIVideo.loadImage(self.fileName[ii])
                     self.t0 = self.fileTime[ii]/1e9
                     self.currentIdx = ii
@@ -163,9 +165,7 @@ class SCameraFromFile(BaseSequencer):
                     if not self.isReading:
                         break
             except:
-                print(f"An exception occurred in thread of {self.name}:\n")
-                print(f'self.fileName {self.fileName}')
-                traceback.print_exc()
+                logger.exception(f"An exception occurred in thread of {self.name} (self.fileName {self.fileName})")
  
             self.isReading = False
             yield False

@@ -12,6 +12,9 @@ import PFPyCameraLib as pf
 from PFPyCameraLib import PixelType
 import numpy as np
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 #%%
 
@@ -135,7 +138,7 @@ class Photonfocus:
 
         #Check DoubleRate_Enable feature is present
         if any(elem.Name == "DoubleRate_Enable" for elem in featureList):
-            print("DoubleRate_Enable feature found. Disabling feature.")
+            logger.info("DoubleRate_Enable feature found. Disabling feature.")
             pfResult = pfCam.SetFeatureBool("DoubleRate_Enable", False)
             if pfResult != pf.Error.NONE:
                 ExitWithErrorPrompt("Failed to set DoubleRate_Enable", pfResult)
@@ -309,8 +312,7 @@ class Photonfocus:
             self.pixelChar['coef_pixels'] = coef_pixels
 
         except:
-            print(f'could not read the file {self.calibrationFile}')
-            print(f'switching to plain pixel values')
+            logger.exception(f'could not read the file {self.calibrationFile} - switching to plain pixel values')
             self.GetPlainCalibrationData()
 
     def plotCalibrationData():
@@ -353,7 +355,7 @@ class Photonfocus:
         #Create stream depending on camera type
         if self.cam_info.GetType() == pf.CameraType.CAMTYPE_GEV:
             self.pfStream = pf.PFStreamGEV(True, True, True, True)
-            print('camera is  GEV type')
+            logger.info('camera is  GEV type')
         else:
             self.pfStream = pf.PFStreamU3V()
         
@@ -417,7 +419,7 @@ class Photonfocus:
                 self._releaseLastBuffer()
                 time.sleep(self.exposureTime_um/1e6/10)
                 [pfResult, self.pfBuffer] = self.pfStream.GetNextBuffer()
-                print(f'waiting for valid image {pfResult}')
+                logger.debug(f'waiting for valid image {pfResult}')
                 if 'STREAM_CLOSED' in str(pfResult) or 'TIMEOUT' in str(pfResult):
                     break
                 #print(waitForValidImage)
@@ -451,8 +453,8 @@ class Photonfocus:
 
         if self.pfStream:
 
-            print(f'AcquisitionFrameCount {self.pfStream.GetAcquisitionFrameCount()}')
-            print(f'GetBufferCount {self.pfStream.GetBufferCount()}')
+            logger.debug(f'AcquisitionFrameCount {self.pfStream.GetAcquisitionFrameCount()}')
+            logger.debug(f'GetBufferCount {self.pfStream.GetBufferCount()}')
 
             if not self.pfBufferReleased:
                 self._releaseLastBuffer()
@@ -463,24 +465,24 @@ class Photonfocus:
 
             bufferCount = self.pfBuffer.GetFrameCounter()
             
-            print(f'0. buffer count {bufferCount}')
+            logger.debug(f'0. buffer count {bufferCount}')
             for ii in range(N):
 
                 #Get image object from buffer
                 self.pfBuffer.GetImage(self.pfImage)
-                print('got new image')
+                logger.debug('got new image')
                 if ii==0:
                     imageData = 1*np.array(self.pfImage, copy = False)
                 else:
                     imageData = imageData + np.array(self.pfImage, copy = False)
 
                 bufferCount = self.pfBuffer.GetFrameCounter()
-                print(f'ii = {ii}')
-                print(f' next buffer count {bufferCount}')
+                logger.debug(f'ii = {ii}')
+                logger.debug(f' next buffer count {bufferCount}')
                 while bufferCount < ii:
                     time.sleep(self.exposureTime_um/1e6/3)
                     bufferCount = self.pfBuffer.GetFrameCounter()
-                    print(f' waiting buffer count {bufferCount}')
+                    logger.debug(f' waiting buffer count {bufferCount}')
 
 
         imageData = imageData/N
@@ -590,7 +592,7 @@ class Photonfocus:
                     lineplot.setData(self.pixelChar['wv'], mySpec[ii])
                     lineplotList.append(lineplot)
             except:
-                print('error occured in draw_spectraGraph')
+                logger.exception('error occured in draw_spectraGraph')
 
             # check if bcg point is set
             try:
@@ -615,7 +617,7 @@ class Photonfocus:
                     myline.setData(self.pixelChar['wv'],mySpec[ii], pen = mypen)
 
             except:
-                print('error occured in update_spectraGraph')
+                logger.exception('error occured in update_spectraGraph')
 
 
         @thread_worker

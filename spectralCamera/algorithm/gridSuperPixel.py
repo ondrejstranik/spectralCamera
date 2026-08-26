@@ -2,6 +2,7 @@
 class to warp the hyperspectral image
 '''
 # %% this comment line is code running in Jupiter notebook
+import logging
 import numpy as np
 #from skimage import data, filters, measure, morphology
 #from skimage.filters import threshold_otsu, rank
@@ -9,6 +10,8 @@ import numpy as np
 #from scipy.interpolate import griddata
 
 from spectralCamera.algorithm.basisVectors import lattice_basis_vectors
+
+logger = logging.getLogger(__name__)
 
 class GridSuperPixel():
     ''' main class to classify the grid of super-pixels in the image'''
@@ -86,7 +89,7 @@ class GridSuperPixel():
         ii = 0
         while idxToCheck != []:
             if ii%10 == 0:
-                print(f'Pixel indexing step {ii}')
+                logger.info(f'Pixel indexing step {ii}')
             
             idxToCheckNew = []
 
@@ -146,7 +149,7 @@ class GridSuperPixel():
         where N is number of blocks 
         obtaining spectral blocks from image x is done by x[idxRow,idxColumn]
         '''
-        print('getSpBlockInd: indexing the spectral Blocks')
+        logger.info('getSpBlockInd: indexing the spectral Blocks')
         nInside = np.sum(self.inside*1)
         self.spBlockRowIdx = np.empty((nInside,2*bheight+1,2*bwidth+1),dtype=int)
         self.spBlockColumnIdx = np.empty((nInside,2*bheight+1,2*bwidth+1),dtype=int)

@@ -3,11 +3,14 @@ class for gui for loading sequential saved spectral images
 '''
 #%%
 from pathlib import Path
+import logging
 import numpy as np
 
 from viscope.gui.baseGUI import BaseGUI
 from magicgui import magicgui
 from magicgui.widgets import Container
+
+logger = logging.getLogger(__name__)
 
 class SCameraFromFileGUI(BaseGUI):
     ''' main class to set parameters in spectral Camera from File via GUI'''
@@ -40,7 +43,7 @@ class SCameraFromFileGUI(BaseGUI):
                 oldFolder = self.device.getFolder()
                 if str(filePath) != str(oldFolder):
                         self.device.setFolder(str(filePath))
-                        print(f'setting new folder{filePath} ')
+                        logger.info(f'setting new folder{filePath} ')
                 # keep the widget's own display in sync - calling this
                 # FunctionGui directly with a kwarg does not update its
                 # bound widget's value on its own

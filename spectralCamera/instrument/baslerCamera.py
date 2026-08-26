@@ -4,16 +4,19 @@ wrapper for Basler camera
 """
 #%%
 
+import logging
 import numpy as np
 
 from datetime import date
 from os import path, mkdir
 from timeit import default_timer as timer
-import time 
+import time
 
 import HSIplasmon as hsi
 
 from pypylon import pylon
+
+logger = logging.getLogger(__name__)
 
 
 class baslerCamera:
@@ -93,7 +96,7 @@ class baslerCamera:
 
             # it is waiting till image is recieved
             grabResult = self._camera.RetrieveResult(grabberTimeout, pylon.TimeoutHandling_ThrowException)
-            print(f'image number {ii}')
+            logger.debug(f'image number {ii}')
 
             # Image grabbed successfully?
             if grabResult.GrabSucceeded():

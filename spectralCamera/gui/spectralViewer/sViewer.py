@@ -10,12 +10,14 @@ from qtpy.QtCore import QTimer
 from viscope.gui.napariViewer.napariViewer import NapariViewer
 from qtpy.QtCore import QObject
 from spectralCamera.algorithm.spotSpectraSimple import SpotSpectraSimple
-import traceback
+import logging
 from timeit import default_timer as timer
 
 import napari
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 pg.setConfigOptions(useOpenGL=True,antialias=False)
 
@@ -218,8 +220,7 @@ class SViewer(QObject):
             for ii in idx:
                 self.table['color'][ii] = hexColor
         except Exception:
-            print('error updating table color from current_color')
-            traceback.print_exc()
+            logger.exception('error updating table color from current_color')
 
         # it is necessary to remember it
         _aux = self.pointLayer.face_color[idx]
@@ -251,8 +252,7 @@ class SViewer(QObject):
         try:
             self.pointLayer.features = {'names': list(self.table['name'])}
         except Exception:
-            print('error updating point annotations from table')
-            traceback.print_exc()
+            logger.exception('error updating point annotations from table')
 
     def toggleVisibility(self):
         ''' toggle visibility of the currently selected spot(s) - bound to
@@ -292,16 +292,14 @@ class SViewer(QObject):
                 self.penList[ii].setColor(QColor.fromRgbF(*list(
                     self.pointLayer.face_color[ii])))
             except:
-                print('error occurred in drawSpectraGraph - could not set color')
-                traceback.print_exc()
+                logger.exception('error occurred in drawSpectraGraph - could not set color')
             try:
                 self.linePlotList[ii].setData(self.spotSpectra.wavelength,
                                               self.spotSpectra.getSpectra()[ii],
                                               pen = self.penList[ii])
                 self.linePlotList[ii].show() if isVisible else self.linePlotList[ii].hide()
             except:
-                print('error occurred in drawSpectraGraph - could not set data')
-                traceback.print_exc()
+                logger.exception('error occurred in drawSpectraGraph - could not set data')
                 
         # hide extra lines
         for ii in np.arange(self.maxNLine - nSig):
@@ -337,7 +335,7 @@ class SViewer(QObject):
 
     def pointChanged(self):
         ''' updates the points, calculate spectra and draw the spectra'''
-        print('recalculating mask')
+        logger.debug('recalculating mask')
         self.spotSpectra.setSpot(self.pointLayer.data)
         self.spotSpectra.setMask()
 
@@ -380,7 +378,7 @@ class SViewer(QObject):
         if (modified=='point'):
             self.drawSpectraGraph()
         end = timer()
-        print(f'viewer redraw evaluation time {end -start} s')
+        logger.debug(f'viewer redraw evaluation time {end -start} s')
 
     def _speedUpLineDrawing(self,line):
         ''' set parameter of a line in a pyqtplot so that it is quicker'''

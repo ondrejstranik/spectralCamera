@@ -8,7 +8,7 @@ components: camera
 #%%
 
 import time
-import traceback
+import logging
 
 from viscope.virtualSystem.base.baseSystem import BaseSystem
 from viscope.virtualSystem.component.component import Component
@@ -16,6 +16,8 @@ from spectralCamera.virtualSystem.component.component2 import Component2
 from spectralCamera.virtualSystem.component.sample2 import Sample2
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleSpectralMicroscope(BaseSystem):
@@ -55,7 +57,7 @@ class SimpleSpectralMicroscope(BaseSystem):
                                 iFramePosition=np.array([0,0]),iPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'],
                                 magnification=1)
 
-        print('virtual Frame updated')
+        logger.debug('virtual Frame updated')
 
         return oFrame
 
@@ -67,12 +69,11 @@ class SimpleSpectralMicroscope(BaseSystem):
             try:
                 yield
                 if self.deviceParameterIsChanged():
-                    print(f'calculate virtual frame')
+                    logger.debug('calculate virtual frame')
                     self.device['camera'].virtualFrame = self.calculateVirtualFrame()
                     self.deviceParameterFlagClear()
             except:
-                print(f"An exception occurred in thread of {self.__class__.__name__}:\n")
-                traceback.print_exc()
+                logger.exception(f"An exception occurred in thread of {self.__class__.__name__}")
             time.sleep(self.loopDelay)
 
         

@@ -8,10 +8,13 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 from viscope.gui.napariViewer.napariViewer import NapariViewer
 from qtpy.QtCore import QObject
+import logging
 
 import napari
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 pg.setConfigOptions(useOpenGL=True,antialias=False)
 
@@ -243,7 +246,7 @@ class XYWViewer(QObject):
                 self.lineplotList[ii].setData(self.wavelength, self.pointSpectra[ii])
                 self.lineplotList[ii].show()
             except:
-                print('error occurred in drawSpectraGraph - pointSpectra')
+                logger.exception('error occurred in drawSpectraGraph - pointSpectra')
                 
         # hide extra lines
         for ii in np.arange(self.maxNLine - nSig):
@@ -296,7 +299,7 @@ class XYWViewer(QObject):
             height=self.spectraHistogramValue,
             width= self.spectraHistogramBin[1]- self.spectraHistogramBin[0])
         except:
-            print('error occurred in updateSpectraHistogram')
+            logger.exception('error occurred in updateSpectraHistogram')
 
     def updateSpectraHistogramTitle(self):
         ''' update spectra histogram title'''
@@ -305,13 +308,13 @@ class XYWViewer(QObject):
                 myw = self.wavelength[int(self.viewer.dims.point[0])]
                 self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
             except:
-                print('error occurred in updateSpectraHistogramTitle')
+                logger.exception('error occurred in updateSpectraHistogramTitle')
         if self.spectraLayer.data.ndim ==4:
             try:
                 myw = self.wavelength[int(self.viewer.dims.point[1])]
                 self.spectraHistogram.setTitle(f'Spectra Histogram - {myw} nm')
             except:
-                print('error occurred in updateSpectraHistogramTitle')
+                logger.exception('error occurred in updateSpectraHistogramTitle')
 
 
     def updateHistogram(self):
@@ -335,7 +338,7 @@ class XYWViewer(QObject):
         ''' set wavelength '''        
         self.wavelength = wavelength
         if len(wavelength)!= self.xywImage.shape[0]:
-            print('number of wavelength is not equal to image spectral channels')
+            logger.warning('number of wavelength is not equal to image spectral channels')
         self.updateSpectraHistogramTitle()
 
     def _speedUpLineDrawing(self,line):

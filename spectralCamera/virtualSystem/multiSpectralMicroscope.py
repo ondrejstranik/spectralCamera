@@ -8,13 +8,15 @@ components: camera
 #%%
 
 import time
-import traceback
+import logging
 
 from viscope.virtualSystem.base.baseSystem import BaseSystem
 from viscope.virtualSystem.component.component import Component
 from spectralCamera.virtualSystem.component.sample2 import Sample2
 from spectralCamera.virtualSystem.component.component2 import Component2
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class MultiSpectralMicroscope(BaseSystem):
@@ -116,9 +118,9 @@ class MultiSpectralMicroscope(BaseSystem):
                                 iFramePosition=iFramePosition,iPixelSize=self.device['camera'].DEFAULT['cameraPixelSize'],
                                 magnification=1)
 
-        print(f'oFrame.shape {oFrame.shape}')
+        logger.debug(f'oFrame.shape {oFrame.shape}')
 
-        print('virtual Frame updated')
+        logger.debug('virtual Frame updated')
 
         return oFrame
 
@@ -137,7 +139,7 @@ class MultiSpectralMicroscope(BaseSystem):
                                 magnification=1)
 
 
-        print('virtual Frame updated')
+        logger.debug('virtual Frame updated')
 
         return oFrame
 
@@ -151,18 +153,17 @@ class MultiSpectralMicroscope(BaseSystem):
                 yield
                 stageMoved = self.device['stage'] is not None and self.device['stage'].flagSetParameter.is_set()
                 if self.device['camera'].flagSetParameter.is_set() or stageMoved:
-                    print(f'calculate virtual frame - camera ')
+                    logger.debug('calculate virtual frame - camera')
                     self.device['camera'].virtualFrame = self.calculateVirtualFrameCamera()
                     self.device['camera'].flagSetParameter.clear()
                 if self.device['camera2'].flagSetParameter.is_set() or stageMoved:
-                    print(f'calculate virtual frame - camera2')
+                    logger.debug('calculate virtual frame - camera2')
                     self.device['camera2'].virtualFrame = self.calculateVirtualFrameCamera2()
                     self.device['camera2'].flagSetParameter.clear()
                 if stageMoved:
                     self.device['stage'].flagSetParameter.clear()
             except:
-                print(f"An exception occurred in thread of {self.__class__.__name__}:\n")
-                traceback.print_exc()
+                logger.exception(f"An exception occurred in thread of {self.__class__.__name__}")
             time.sleep(self.loopDelay)
 
         

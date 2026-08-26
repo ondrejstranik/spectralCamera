@@ -8,6 +8,7 @@ Created on Fri Aug 25 08:44:55 2023
 """
 #%%
 
+import logging
 import mil as MIL
 import numpy as np
 import ctypes
@@ -16,6 +17,8 @@ import ctypes
 
 
 from viscope.instrument.base.baseCamera import BaseCamera
+
+logger = logging.getLogger(__name__)
 
 
 class MilCamera(BaseCamera):
@@ -136,10 +139,10 @@ class MilCamera(BaseCamera):
 
     def getLastImage(self):
         nBuffer = self.nFrame//self.n_buffer_save
-        print(f'number of full buffers: {nBuffer}')
+        logger.debug(f'number of full buffers: {nBuffer}')
         myframe = None
         for ii in range(nBuffer):
-            print(f'full buffer number: {ii}')
+            logger.debug(f'full buffer number: {ii}')
             _myframe = self.getLastImageFromGrabber(self.n_buffer_save)
             if myframe is None:
                 myframe = _myframe.astype(float)
@@ -149,7 +152,7 @@ class MilCamera(BaseCamera):
         nLast = self.nFrame % self.n_buffer_save
         myframeLast = 0
         if nLast !=0:
-            print(f'last not full buffer with number of images: {nLast}')
+            logger.debug(f'last not full buffer with number of images: {nLast}')
             myframeLast = self.getLastImageFromGrabber(nLast)
         if myframe is None:
             self.rawImage = myframeLast.astype(float)

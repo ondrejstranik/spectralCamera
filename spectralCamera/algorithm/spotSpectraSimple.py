@@ -6,7 +6,9 @@ class for calculating spot spectra from 3D spectral cube
 
 import numpy as np
 from skimage.transform import rotate
-import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SpotSpectraSimple:
@@ -83,9 +85,7 @@ class SpotSpectraSimple:
             self.outliers = np.any(_olm,axis=1)
 
         except:
-            print('error in setting self.maskImage')
-            print(f'_spotPosition {_spotPosition}')
-            traceback.print_exc()
+            logger.exception(f'error in setting self.maskImage (_spotPosition {_spotPosition})')
 
 
     def setSpot(self, spotPosition):
@@ -101,7 +101,7 @@ class SpotSpectraSimple:
         self.wavelength = wavelength
 
         if len(wavelength)!= self.image.shape[0]:
-            print('number of wavelength is not equal to image spectral channels')
+            logger.warning('number of wavelength is not equal to image spectral channels')
 
     def calculateSpectra(self):
         ''' calculate the spectra '''
@@ -113,7 +113,7 @@ class SpotSpectraSimple:
             nSpot = len(self.spotPosition)
         
         if self.maskSpotIdx is None:
-            print('no self.maskSpotIdx')
+            logger.warning('no self.maskSpotIdx')
             return
         
         if not hasattr(self,'image') or self.image is None:
@@ -131,8 +131,7 @@ class SpotSpectraSimple:
                 _spectraSpot[~self.outliers,:] / self.maskSpotIdx[0].shape[1]
             )
         except:
-            print('error in calculateSpectra')
-            traceback.print_exc()
+            logger.exception('error in calculateSpectra')
 
         self.spectraSpot = _spectraSpot.tolist()
 

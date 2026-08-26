@@ -8,8 +8,10 @@ class FileSILCTFVideo
 import numpy as np
 from pathlib import Path
 import re
-import traceback
+import logging
 import tifffile
+
+logger = logging.getLogger(__name__)
 
 class FileSILCTFVideo:
     ''' class to load a time series of spectral images acquired with a tunable filter (LCTF),
@@ -100,8 +102,7 @@ class FileSILCTFVideo:
                 sImage[ii,...] = _image
 
         except:
-            print('error in class FileSILCTFVideo, function loadImage - could not load image')
-            traceback.print_exc()
+            logger.exception('error in class FileSILCTFVideo, function loadImage - could not load image')
             return
 
         return sImage
