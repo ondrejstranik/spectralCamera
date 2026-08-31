@@ -68,7 +68,7 @@ class SCameraFromFileGUI(BaseGUI):
                                     }
         )
         def runFileSet(fileSetIdx = (1,1)):
-            
+
             if self.device.isReading:
                 self.device.stopReadingImages()
                 runFileSet.call_button.text = 'Run'
@@ -76,14 +76,22 @@ class SCameraFromFileGUI(BaseGUI):
                 runFileSet.call_button.text = 'Stop'
                 _idx = list(range(fileSetIdx[0]-1, fileSetIdx[1] -1))
                 self.device.startReadingImages(idx=_idx)
-                
-             
 
-        # add widgets 
+
+
+        @magicgui(auto_call=True, layout='horizontal',
+                  flipH={'label': 'flip image:  horizontally'},
+                  flipV={'label': 'vertically'})
+        def flipGui(flipH: bool = False, flipV: bool = False):
+            self.device.setParameter('flipH', flipH)
+            self.device.setParameter('flipV', flipV)
+
+        # add widgets
         self.selectFileGui = selectFileGui
         self.runFileSet = runFileSet
+        self.flipGui = flipGui
 
-        self.container = Container(widgets=[self.selectFileGui,self.runFileSet])
+        self.container = Container(widgets=[self.selectFileGui,self.runFileSet,self.flipGui], labels=False)
 
         self.vWindow.addParameterGui(self.container,name=self.DEFAULT['nameGUI'])
  

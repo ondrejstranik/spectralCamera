@@ -51,6 +51,11 @@ class SCameraFromFile(BaseSequencer):
         self.isReading = False # indicates if it is reading the images
         self.flagToProcess = None
 
+        # flip the loaded spectral image (applied in loop(), before it is
+        # yielded/processed further)
+        self.flipH = False # mirror left-right
+        self.flipV = False # mirror top-bottom
+
     def getWavelength(self):
         return self.wavelength        
 
@@ -81,6 +86,16 @@ class SCameraFromFile(BaseSequencer):
     def getFolder(self):
         ''' get current folder'''
         return self.fileSIVideo.folder
+
+    def _flipImage(self, image):
+        ''' apply flipH/flipV to a spectral image cube (..., height, width) -
+        horizontal = mirror left-right (last axis), vertical = mirror
+        top-bottom (second-to-last axis) '''
+        if self.flipH:
+            image = np.flip(image, axis=-1)
+        if self.flipV:
+            image = np.flip(image, axis=-2)
+        return image
 
     def startReadingImages(self,idx=None):
         ''' initiate sending the spectral images'''
@@ -116,7 +131,7 @@ class SCameraFromFile(BaseSequencer):
 
         if name== 'processor':
             self.processor = value
-            
+
             if value=='GUI':
                 self.flagToProcess = ThreadFlag()
             else:
@@ -125,16 +140,28 @@ class SCameraFromFile(BaseSequencer):
                 except:
                     logger.warning('this processor does not have flagToProcess')
 
+        if name == 'flipH':
+            self.flipH = value
+
+        if name == 'flipV':
+            self.flipV = value
+
     def getParameter(self,name):
         ''' get parameter of the camera '''
         _value = super().getParameter(name)
-        if _value is not None: return _value        
+        if _value is not None: return _value
 
         if name=='wavelength':
             return self.getWavelength()
 
         if name== 'processor':
             return self.processor
+
+        if name == 'flipH':
+            return self.flipH
+
+        if name == 'flipV':
+            return self.flipV
 
     def loop(self):
         ''' process new data file'''
@@ -149,6 +176,7 @@ class SCameraFromFile(BaseSequencer):
                 for ii in self.idx:
                     logger.debug(f'processing file # {ii}')
                     self.sImage = self.fileSIVideo.loadImage(self.fileName[ii])
+                    self.sImage = self._flipImage(self.sImage)
                     self.t0 = self.fileTime[ii]/1e9
                     self.currentIdx = ii
                     yield True
