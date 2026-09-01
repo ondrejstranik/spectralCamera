@@ -9,6 +9,8 @@ Created on Fri Aug 25 08:44:55 2023
 #%%
 
 import logging
+import time
+import threading
 import mil as MIL
 import numpy as np
 import ctypes
@@ -19,6 +21,50 @@ import ctypes
 from viscope.instrument.base.baseCamera import BaseCamera
 
 logger = logging.getLogger(__name__)
+
+
+class _AccumulateHookData:
+    ''' state shared between MilCamera.getLastImage() and the MdigProcess
+    hook callback that runs on MIL's internal grab thread. '''
+
+    def __init__(self, nFrame, accBuffer, flushEvery, height, width):
+        self.nFrame = nFrame
+        self.accBuffer = accBuffer
+        self.flushEvery = flushEvery
+        self.count = 0
+        self.unflushedCount = 0
+        self.total = np.zeros((height, width), dtype=np.float64)
+        self.done = threading.Event()
+
+    def flush(self):
+        ''' transfer the on-board partial sum to the host and reset it '''
+        if self.unflushedCount == 0:
+            return
+        self.total += MIL.MbufGet(self.accBuffer)
+        MIL.MbufClear(self.accBuffer, MIL.M_COLOR_BLACK)
+        self.unflushedCount = 0
+
+
+def _accumulateFrameHook(HookType, HookId, HookDataPtr):
+    ''' called by MIL once per grabbed frame. Stays on-board (MimArith add)
+    and only transfers to the host every flushEvery frames, so it can keep
+    up with continuous grabbing instead of falling behind it. '''
+    hookData = HookDataPtr
+    if hookData.count >= hookData.nFrame:
+        return 0
+
+    bufferId = MIL.MdigGetHookInfo(HookId, MIL.M_MODIFIED_BUFFER + MIL.M_BUFFER_ID)
+    MIL.MimArith(bufferId, hookData.accBuffer, hookData.accBuffer, MIL.M_ADD)
+    hookData.count += 1
+    hookData.unflushedCount += 1
+
+    if hookData.unflushedCount >= hookData.flushEvery:
+        hookData.flush()
+
+    if hookData.count >= hookData.nFrame:
+        hookData.done.set()
+
+    return 0
 
 
 class MilCamera(BaseCamera):
@@ -47,7 +93,6 @@ class MilCamera(BaseCamera):
         ## Standard, don't change
         self.ExposureTime_0 = 999850
         self.AcquisitionFrameRate_0 = 1
-        self.AcquisitionFramePeriod_0 = 100
 
         #### Measurement parameters
         self.n_buffer_save = MilCamera.DEFAULT['n_buffer_save']
@@ -73,7 +118,7 @@ class MilCamera(BaseCamera):
         self.height = MIL.MdigInquire(self.MilDigitizer, MIL.M_SIZE_Y)
         self.width = MIL.MdigInquire(self.MilDigitizer, MIL.M_SIZE_X)
 
-        # Allocate the save buffers
+        # Allocate the save buffers (grab ring, for double-buffering)
         for n in range(0, self.n_buffer_save):
             self.SaveBuffer.append(
                 MIL.MbufAlloc2d(self.MilSystem,
@@ -82,6 +127,17 @@ class MilCamera(BaseCamera):
                 16 + MIL.M_UNSIGNED,
                 MIL.M_IMAGE + MIL.M_GRAB + MIL.M_PROC))
             MIL.MbufClear(self.SaveBuffer[n], MIL.M_COLOR_BLACK);
+
+        # Separate on-board accumulator (same 16-bit depth as SaveBuffer, so
+        # MimArith adds are plain value-preserving sums - no cross-depth
+        # rescaling). Never used as a grab target, so the MdigProcess hook
+        # can safely add into it between host flushes.
+        self.GroupAccBuffer = MIL.MbufAlloc2d(self.MilSystem,
+            MIL.MdigInquire(self.MilDigitizer, MIL.M_SIZE_X),
+            MIL.MdigInquire(self.MilDigitizer, MIL.M_SIZE_Y),
+            16 + MIL.M_UNSIGNED,
+            MIL.M_IMAGE + MIL.M_PROC)
+        MIL.MbufClear(self.GroupAccBuffer, MIL.M_COLOR_BLACK);
 
     def disconnect(self):
         self.free_alloc()
@@ -94,12 +150,15 @@ class MilCamera(BaseCamera):
         ## just change exposure time
         self.exposureTime = value #5000;#999850;
         exposureTime_um = 1000* self.exposureTime
-        #self.AcquisitionFrameRate = MIL.MIL_INT(int(self.n_buffer_save*np.floor(self.AcquisitionFrameRate_0 * self.ExposureTime_0 /self.ExposureTime) ));
-        #self.AcquisitionFramePeriod = MIL.MIL_INT(int((1/self.n_buffer_save)* np.ceil(self.AcquisitionFramePeriod_0 * self.ExposureTime / self.ExposureTime_0) ));
-        
+
+        # Request the shortest achievable cycle: frame rate scaled inversely
+        # from the ExposureTime_0/AcquisitionFrameRate_0 baseline, and frame
+        # period requested equal to the exposure time itself (us, matching
+        # ExposureTime's unit) - i.e. back-to-back frames with no extra gap.
+        # The camera clamps both to whatever it can actually sustain.
         self.AcquisitionFrameRate = MIL.MIL_INT(int(np.floor(self.AcquisitionFrameRate_0 * self.ExposureTime_0 /exposureTime_um) ))
-        self.AcquisitionFramePeriod = MIL.MIL_INT(int( np.ceil(self.AcquisitionFramePeriod_0 * exposureTime_um / self.ExposureTime_0) ))
-        
+        self.AcquisitionFramePeriod = MIL.MIL_INT(exposureTime_um)
+
         _ExposureTime = MIL.MIL_INT(exposureTime_um)
         
         # Put the digitizer in asynchronous mode to be able to process while grabbing.
@@ -113,51 +172,51 @@ class MilCamera(BaseCamera):
         ''' free the buffer on the mil '''
         for n in range(0, self.n_buffer_save):
             MIL.MbufFree(self.SaveBuffer[n])
-    
+        MIL.MbufFree(self.GroupAccBuffer)
+
         MIL.MappFreeDefault(self.MilApplication, self.MilSystem, self.MilDisplay, self.MilDigitizer, MIL.M_NULL)
-        
-   
-    def getLastImageFromGrabber(self, n_buffer_save):
-        ''' get - n_buffer_save - images from the buffer 
-        return numpy array (average of them)'''
 
-        # save images to the grabber card ... maximum 8
-        for i_frame in range(n_buffer_save):
-            #print(i_frame, " ", self.n_buffer_save)
-            MIL.MdigGrab(self.MilDigitizer, self.SaveBuffer[i_frame])
-            MIL.MdigGrabWait(self.MilDigitizer, MIL.M_GRAB_END);
-
-        # make average image of the buffered images
-        #print("Measurement finished. Accumulation buffers.")
-        MIL.MimArith(self.SaveBuffer[0], n_buffer_save, self.SaveBuffer[0], MIL.M_DIV_CONST);
-        for i_buffer in range(1,n_buffer_save):
-            #print("buffer ", i_buffer, " / ", self.n_buffer_save)
-            MIL.MimArith(self.SaveBuffer[i_buffer], n_buffer_save, self.SaveBuffer[i_buffer], MIL.M_DIV_CONST);
-            MIL.MimArith(self.SaveBuffer[i_buffer], self.SaveBuffer[0], self.SaveBuffer[0], MIL.M_ADD);
-
-        return MIL.MbufGet(self.SaveBuffer[0])
 
     def getLastImage(self):
-        nBuffer = self.nFrame//self.n_buffer_save
-        logger.debug(f'number of full buffers: {nBuffer}')
-        myframe = None
-        for ii in range(nBuffer):
-            logger.debug(f'full buffer number: {ii}')
-            _myframe = self.getLastImageFromGrabber(self.n_buffer_save)
-            if myframe is None:
-                myframe = _myframe.astype(float)
-            else:
-                myframe = myframe + _myframe
+        ''' grab self.nFrame frames and average them.
 
-        nLast = self.nFrame % self.n_buffer_save
-        myframeLast = 0
-        if nLast !=0:
-            logger.debug(f'last not full buffer with number of images: {nLast}')
-            myframeLast = self.getLastImageFromGrabber(nLast)
-        if myframe is None:
-            self.rawImage = myframeLast.astype(float)
-        else:
-            self.rawImage = myframe*self.n_buffer_save/self.nFrame + myframeLast*nLast/self.nFrame
+        Individual synchronous MdigGrab/MdigGrabWait calls were measured to
+        cost ~2x the camera's actual frame period - issuing grabs one at a
+        time does not let the hardware run continuously. MdigProcess keeps
+        the digitizer continuously acquiring into a ring of buffers and
+        invokes a hook per frame instead, which lets it sustain close to
+        its real frame-rate ceiling. Each frame is summed on-board and only
+        flushed to the host every n_buffer_save frames (see
+        _AccumulateHookData/_accumulateFrameHook), so the hook stays fast
+        enough not to fall behind the grab rate. '''
+
+        nFrame = self.nFrame
+        nBuf = self.n_buffer_save
+
+        hookData = _AccumulateHookData(nFrame, self.GroupAccBuffer, nBuf, self.height, self.width)
+        hookFunctionPtr = MIL.MIL_DIG_HOOK_FUNCTION_PTR(_accumulateFrameHook)
+
+        MIL.MbufClear(self.GroupAccBuffer, MIL.M_COLOR_BLACK)
+
+        tStart = time.perf_counter()
+        MIL.MdigProcess(self.MilDigitizer, self.SaveBuffer, nBuf, MIL.M_START, MIL.M_DEFAULT, hookFunctionPtr, hookData)
+
+        timedOut = not hookData.done.wait(timeout=max(5.0, nFrame * 0.5))
+
+        MIL.MdigProcess(self.MilDigitizer, self.SaveBuffer, nBuf, MIL.M_STOP, MIL.M_DEFAULT, hookFunctionPtr, hookData)
+        hookData.flush()
+        tTotal = time.perf_counter() - tStart
+
+        if timedOut:
+            logger.warning(f'getLastImage: timed out waiting for {nFrame} frames, only got {hookData.count}')
+
+        processFrameCount = MIL.MdigInquire(self.MilDigitizer, MIL.M_PROCESS_FRAME_COUNT)
+        processFrameRate = MIL.MdigInquire(self.MilDigitizer, MIL.M_PROCESS_FRAME_RATE)
+
+        self.rawImage = hookData.total / max(hookData.count, 1)
+
+        logger.info(f'getLastImage({nFrame} frames, {hookData.count} received): total {tTotal*1000:.1f} ms | '
+                    f'MIL-reported {processFrameCount} frames at {processFrameRate:.1f} fps')
 
         return self.rawImage
 

@@ -115,6 +115,22 @@ def test_milCamera2():
 
 
 @pytest.mark.GUI
+def test_milCameraLive():
+    ''' check if mil camera shows live raw images in a napari viewer,
+    with camera parameters (exposureTime, nFrame) set beforehand '''
+    from spectralCamera.instrument.camera.milCamera.milCamera import MilCamera
+
+    cam = MilCamera(name='MilCamera')
+    cam.connect()
+    cam.setParameter('exposureTime', 10)
+    cam.setParameter('nFrame', 5)
+
+    cam._displayStreamOfImages()
+
+    cam.disconnect()
+
+
+@pytest.mark.GUI
 def test_PFCamera():
     ''' check if PFCamera works'''
     from spectralCamera.instrument.camera.pfCamera.pFCamera import PFCamera
