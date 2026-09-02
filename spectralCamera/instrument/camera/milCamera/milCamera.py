@@ -92,6 +92,14 @@ class MilCamera(BaseCamera):
         #self.GrabBuffer = []
         self.SaveBuffer = []
 
+        # held for the full duration of getLastImage(); disconnect() must
+        # acquire it before freeing MIL resources, so a worker-thread call
+        # in flight (which can legitimately take seconds) is never racing
+        # against MappFreeDefault - that race caused a MIL access violation
+        # when the worker was still inside MdigProcess(..., M_STOP, ...)
+        # after the application had already been freed.
+        self._acquisitionLock = threading.Lock()
+
         ## Standard, don't change
         self.ExposureTime_0 = 999850
         self.AcquisitionFrameRate_0 = 1
@@ -199,8 +207,18 @@ class MilCamera(BaseCamera):
         MIL.MbufClear(self.GroupAccBuffer, MIL.M_COLOR_BLACK);
 
     def disconnect(self):
-        self.free_alloc()
+        # Stop the worker thread (if running) first, so it isn't calling
+        # getLastImage() while free_alloc() below frees the MIL resources
+        # it uses. super().disconnect() only waits a short, best-effort
+        # time for the worker to stop, which isn't always long enough for
+        # a getLastImage() call already in flight (it can legitimately
+        # take seconds) - the acquisition lock below is what actually
+        # guarantees safety, blocking free_alloc() until any such call has
+        # genuinely finished, however long that takes.
         super().disconnect()
+
+        with self._acquisitionLock:
+            self.free_alloc()
 
 
     def _setExposureTime(self, value):
@@ -258,35 +276,38 @@ class MilCamera(BaseCamera):
         _AccumulateHookData/_accumulateFrameHook), so the hook stays fast
         enough not to fall behind the grab rate. '''
 
-        nFrame = self.nFrame
-        nBuf = self.n_buffer_save
+        # Held for the whole call so disconnect() can never free the MIL
+        # application while this is still using it (see _acquisitionLock).
+        with self._acquisitionLock:
+            nFrame = self.nFrame
+            nBuf = self.n_buffer_save
 
-        hookData = _AccumulateHookData(nFrame, self.GroupAccBuffer, nBuf, self.height, self.width)
-        hookFunctionPtr = MIL.MIL_DIG_HOOK_FUNCTION_PTR(_accumulateFrameHook)
+            hookData = _AccumulateHookData(nFrame, self.GroupAccBuffer, nBuf, self.height, self.width)
+            hookFunctionPtr = MIL.MIL_DIG_HOOK_FUNCTION_PTR(_accumulateFrameHook)
 
-        MIL.MbufClear(self.GroupAccBuffer, MIL.M_COLOR_BLACK)
+            MIL.MbufClear(self.GroupAccBuffer, MIL.M_COLOR_BLACK)
 
-        tStart = time.perf_counter()
-        MIL.MdigProcess(self.MilDigitizer, self.SaveBuffer, nBuf, MIL.M_START, MIL.M_DEFAULT, hookFunctionPtr, hookData)
+            tStart = time.perf_counter()
+            MIL.MdigProcess(self.MilDigitizer, self.SaveBuffer, nBuf, MIL.M_START, MIL.M_DEFAULT, hookFunctionPtr, hookData)
 
-        timedOut = not hookData.done.wait(timeout=max(5.0, nFrame * 0.5))
+            timedOut = not hookData.done.wait(timeout=max(5.0, nFrame * 0.5))
 
-        MIL.MdigProcess(self.MilDigitizer, self.SaveBuffer, nBuf, MIL.M_STOP, MIL.M_DEFAULT, hookFunctionPtr, hookData)
-        hookData.flush()
-        tTotal = time.perf_counter() - tStart
+            MIL.MdigProcess(self.MilDigitizer, self.SaveBuffer, nBuf, MIL.M_STOP, MIL.M_DEFAULT, hookFunctionPtr, hookData)
+            hookData.flush()
+            tTotal = time.perf_counter() - tStart
 
-        if timedOut:
-            logger.warning(f'getLastImage: timed out waiting for {nFrame} frames, only got {hookData.count}')
+            if timedOut:
+                logger.warning(f'getLastImage: timed out waiting for {nFrame} frames, only got {hookData.count}')
 
-        processFrameCount = MIL.MdigInquire(self.MilDigitizer, MIL.M_PROCESS_FRAME_COUNT)
-        processFrameRate = MIL.MdigInquire(self.MilDigitizer, MIL.M_PROCESS_FRAME_RATE)
+            processFrameCount = MIL.MdigInquire(self.MilDigitizer, MIL.M_PROCESS_FRAME_COUNT)
+            processFrameRate = MIL.MdigInquire(self.MilDigitizer, MIL.M_PROCESS_FRAME_RATE)
 
-        self.rawImage = hookData.total / max(hookData.count, 1)
+            self.rawImage = hookData.total / max(hookData.count, 1)
 
-        logger.info(f'getLastImage({nFrame} frames, {hookData.count} received): total {tTotal*1000:.1f} ms | '
-                    f'MIL-reported {processFrameCount} frames at {processFrameRate:.1f} fps')
+            logger.info(f'getLastImage({nFrame} frames, {hookData.count} received): total {tTotal*1000:.1f} ms | '
+                        f'MIL-reported {processFrameCount} frames at {processFrameRate:.1f} fps')
 
-        return self.rawImage
+            return self.rawImage
 
 
 
