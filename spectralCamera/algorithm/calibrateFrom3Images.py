@@ -108,18 +108,23 @@ class CalibrateFrom3Images(BaseCalibrate):
 
         return (peakPosition, peakWidth)
 
-    def setImageStack(self,imageStack=None,wavelengthStack=None):
+    def setImageStack(self,imageStack=None,wavelengthStack=None,folder=None):
         ''' set image stack with the corresponding wavelength
-        if not provided, the images are loaded from default files'''
+        if not provided, the images are loaded from default files
+        folder ... folder to load the images from, defaults to
+        spectralCamera.dataFolder if not given'''
 
         if imageStack is not None:
             self.imageStack = imageStack
             self.wavelengthStack = wavelengthStack
             return
         else:
+            if folder is None:
+                folder = spectralCamera.dataFolder
+
             self.imageStack = []
             for imageName in self.imageNameStack:
-                myIm = np.load(spectralCamera.dataFolder + '\\' + imageName + '.npy')
+                myIm = np.load(folder + '\\' + imageName + '.npy')
                 self.imageStack.append(myIm)
 
  
