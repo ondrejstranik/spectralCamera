@@ -73,6 +73,8 @@ class MilCamera(BaseCamera):
                'exposureTime': 10, # ms initially automatically set the exposure time
                'nFrame': 1,
                'n_buffer_save': 2**3, # number of buffered images on the grabber card
+               'roiHeight': None, # rows to keep (centered crop), None = full sensor height
+               'roiOffsetY': None, # first row of the crop, None = centered within the sensor
     }
 
 
@@ -99,6 +101,14 @@ class MilCamera(BaseCamera):
         # camera parameters
         self.exposureTime = MilCamera.DEFAULT['exposureTime']
         self.nFrame = MilCamera.DEFAULT['nFrame']
+        # only cropping rows speeds up acquisition on this sensor (columns
+        # are read out in parallel, and binning was measured to not reduce
+        # readout time either - only windowing the number of rows does);
+        # set before connect() - it determines the buffer/image dimensions
+        self.roiHeight = MilCamera.DEFAULT['roiHeight']
+        # first row of the roiHeight crop; None centers it. Ignored when
+        # roiHeight is None (nothing to offset within the full sensor).
+        self.roiOffsetY = MilCamera.DEFAULT['roiOffsetY']
 
 
 
@@ -113,6 +123,55 @@ class MilCamera(BaseCamera):
 
         # Allocate defaults
         self.MilApplication, self.MilSystem, self.MilDisplay, self.MilDigitizer = MIL.MappAllocDefault(MIL.M_DEFAULT, ImageBufIdPtr=MIL.M_NULL)
+
+        # Vertical ROI (row windowing), set before querying the image size
+        # below so buffers get sized to the (possibly reduced) height.
+        # Height/OffsetY/Binning persist on the camera itself across
+        # connect()/disconnect() cycles (MappFreeDefault/MappAllocDefault
+        # don't reset them), so always reset to a known-clean state first -
+        # that's what makes roiHeight=None reliably mean "full sensor
+        # height" rather than "whatever a previous session left behind".
+        # Binning in particular must be reset before querying Height's max:
+        # this camera reports SensorHeight/HeightMax relative to the
+        # current BinningVertical (e.g. 3002 instead of 6004 at binning=2),
+        # so a leftover binning setting would silently halve the "full
+        # height" baseline. (BinningVertical/Horizontal and
+        # DecimationVertical were tried for speed first: binning changed
+        # the image size but not the readout time, and this camera has no
+        # decimation feature at all (confirmed via CamExpert's
+        # ImageFormatControl feature list) - only Height/OffsetY actually
+        # move the frame-rate ceiling here.)
+        _BinningHorizontalReset = MIL.MIL_INT(1)
+        MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("BinningHorizontal"), MIL.M_TYPE_MIL_INT, ctypes.byref(_BinningHorizontalReset))
+        _BinningVerticalReset = MIL.MIL_INT(1)
+        MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("BinningVertical"), MIL.M_TYPE_MIL_INT, ctypes.byref(_BinningVerticalReset))
+
+        _OffsetYReset = MIL.MIL_INT(0)
+        MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("OffsetY"), MIL.M_TYPE_MIL_INT, ctypes.byref(_OffsetYReset))
+
+        maxHeight = MIL.MdigInquireFeature(self.MilDigitizer, MIL.M_FEATURE_MAX, "Height", MIL.M_TYPE_MIL_INT)
+        _HeightFull = MIL.MIL_INT(int(maxHeight))
+        MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("Height"), MIL.M_TYPE_MIL_INT, ctypes.byref(_HeightFull))
+
+        if self.roiHeight is not None:
+            if self.roiOffsetY is not None:
+                offsetY = self.roiOffsetY
+            else:
+                offsetY = (maxHeight - self.roiHeight) // 2
+
+            _Height = MIL.MIL_INT(int(self.roiHeight))
+            MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("Height"), MIL.M_TYPE_MIL_INT, ctypes.byref(_Height))
+
+            _OffsetY = MIL.MIL_INT(int(offsetY))
+            MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("OffsetY"), MIL.M_TYPE_MIL_INT, ctypes.byref(_OffsetY))
+
+        readHeight = MIL.MdigInquireFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, "Height", MIL.M_TYPE_MIL_INT)
+        readOffsetY = MIL.MdigInquireFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, "OffsetY", MIL.M_TYPE_MIL_INT)
+        readBinningVertical = MIL.MdigInquireFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, "BinningVertical", MIL.M_TYPE_MIL_INT)
+        readBinningHorizontal = MIL.MdigInquireFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, "BinningHorizontal", MIL.M_TYPE_MIL_INT)
+        logger.info(f'roiHeight requested {self.roiHeight}, roiOffsetY requested {self.roiOffsetY} '
+                    f'(sensor max height {maxHeight}), camera reports '
+                    f'Height={readHeight}, OffsetY={readOffsetY}, BinningVertical={readBinningVertical}, BinningHorizontal={readBinningHorizontal}')
 
         # image parameters
         self.height = MIL.MdigInquire(self.MilDigitizer, MIL.M_SIZE_Y)
@@ -146,24 +205,33 @@ class MilCamera(BaseCamera):
 
     def _setExposureTime(self, value):
         ''' ExposureTime in miliseconds '''
-       
+
         ## just change exposure time
-        self.exposureTime = value #5000;#999850;
+        self.exposureTime = value
         exposureTime_um = 1000* self.exposureTime
 
-        # Request the shortest achievable cycle: frame rate scaled inversely
-        # from the ExposureTime_0/AcquisitionFrameRate_0 baseline, and frame
-        # period requested equal to the exposure time itself (us, matching
-        # ExposureTime's unit) - i.e. back-to-back frames with no extra gap.
+        # AcquisitionFrameRate/AcquisitionFramePeriod persist on the camera
+        # across connect()/disconnect() cycles, same as Height/OffsetY/
+        # Binning - a stale leftover value (e.g. from an earlier, unrelated
+        # ROI/session) silently caps the frame rate regardless of the
+        # current ExposureTime/Height, so both must be explicitly (re)set
+        # every time rather than left alone. (A same-session A/B test can
+        # look like "no difference" here even when it matters, because the
+        # untouched run coasts on whatever the previous run just set -
+        # always test against a fresh/leftover-contaminated baseline, not
+        # a same-session neighbor.) Request the fastest achievable cycle:
+        # frame rate scaled inversely from the ExposureTime_0/
+        # AcquisitionFrameRate_0 baseline, and frame period requested equal
+        # to the exposure time itself (us, matching ExposureTime's unit).
         # The camera clamps both to whatever it can actually sustain.
         self.AcquisitionFrameRate = MIL.MIL_INT(int(np.floor(self.AcquisitionFrameRate_0 * self.ExposureTime_0 /exposureTime_um) ))
         self.AcquisitionFramePeriod = MIL.MIL_INT(exposureTime_um)
 
         _ExposureTime = MIL.MIL_INT(exposureTime_um)
-        
+
         # Put the digitizer in asynchronous mode to be able to process while grabbing.
         MIL.MdigControl(self.MilDigitizer, MIL.M_GRAB_MODE, MIL.M_ASYNCHRONOUS)
-        
+
         MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("AcquisitionFrameRate"), MIL.M_TYPE_MIL_INT, ctypes.byref(self.AcquisitionFrameRate))
         MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("AcquisitionFramePeriod"), MIL.M_TYPE_MIL_INT, ctypes.byref(self.AcquisitionFramePeriod))
         MIL.MdigControlFeature(self.MilDigitizer, MIL.M_FEATURE_VALUE, MIL.MIL_TEXT("ExposureTime"), MIL.M_TYPE_MIL_INT, ctypes.byref(_ExposureTime))
