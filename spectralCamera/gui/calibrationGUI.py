@@ -19,7 +19,14 @@ class CalibrationGUI(BaseGUI):
     ''' GUI to set the parameters of and run a 3-image spectral calibration
     (see spectralCamera.algorithm.calibrateFrom3Images.CalibrateFrom3Images).
     File-based tool, not tied to any live camera device - no setDevice()
-    call is needed or expected. '''
+    call is needed or expected.
+
+    Each of the three filter images and the white reference is picked via
+    its own file dialog; as soon as one is picked it is loaded and shown
+    live in napari, and kept in memory (self.rawImages/self.whiteImage) so
+    Calibrate transfers the already-loaded arrays straight into
+    CalibrateFrom3Images instead of re-loading by name from a shared
+    folder. '''
 
     DEFAULT = {'nameGUI': 'Calibration'}
 
@@ -29,6 +36,16 @@ class CalibrationGUI(BaseGUI):
 
         self.myCal = None
         self.viewer = None
+
+        # loaded image data, kept here so Calibrate can transfer it
+        # directly instead of reloading it by name from a folder
+        self.rawImages = [None, None, None]
+        self.whiteImage = None
+
+        # napari layers, kept so re-selecting a file updates the existing
+        # layer in place instead of adding a duplicate one
+        self._rawLayers = [None, None, None]
+        self._whiteLayer = None
 
         CalibrationGUI.__setWidget(self)
 
@@ -42,27 +59,21 @@ class CalibrationGUI(BaseGUI):
         dataFolder = Path(spectralCamera.dataFolder)
 
         @magicgui(call_button=False,
-                  folder={"label": "calibration folder", "mode": 'd'},
-                  fileName1={"label": "image 1 file (red)", "mode": 'r', "filter": "*.npy"},
+                  fileName1={"label": "image 1 file", "mode": 'r', "filter": "*.npy"},
                   wavelength1={"label": "image 1 wavelength [nm]"},
-                  fileName2={"label": "image 2 file (green)", "mode": 'r', "filter": "*.npy"},
+                  fileName2={"label": "image 2 file", "mode": 'r', "filter": "*.npy"},
                   wavelength2={"label": "image 2 wavelength [nm]"},
-                  fileName3={"label": "image 3 file (blue)", "mode": 'r', "filter": "*.npy"},
+                  fileName3={"label": "image 3 file", "mode": 'r', "filter": "*.npy"},
                   wavelength3={"label": "image 3 wavelength [nm]"},
                   spectralRangeMin={"label": "spectral range min [nm]"},
                   spectralRangeMax={"label": "spectral range max [nm]"},
                   whiteFileName={"label": "white image file", "mode": 'r', "filter": "*.npy"})
-        def settingsGui(folder=dataFolder,
-                         fileName1=dataFolder / (imageNameStack[0] + '.npy'), wavelength1=wavelengthStack[0],
+        def settingsGui(fileName1=dataFolder / (imageNameStack[0] + '.npy'), wavelength1=wavelengthStack[0],
                          fileName2=dataFolder / (imageNameStack[1] + '.npy'), wavelength2=wavelengthStack[1],
                          fileName3=dataFolder / (imageNameStack[2] + '.npy'), wavelength3=wavelengthStack[2],
                          spectralRangeMin=spectralRange[0], spectralRangeMax=spectralRange[1],
                          whiteFileName=dataFolder / 'white_0.npy'):
             pass
-
-        @magicgui(call_button='Show images')
-        def showImagesGui():
-            self._showImages()
 
         @magicgui(call_button='Calibrate',
                   status={"widget_type": "Label"},
@@ -78,34 +89,34 @@ class CalibrationGUI(BaseGUI):
             self._save(saveFolder)
 
         self.settingsGui = settingsGui
-        self.showImagesGui = showImagesGui
         self.calibrateGui = calibrateGui
         self.saveGui = saveGui
 
         self.container = Container(widgets=[self.settingsGui,
-                                             self.showImagesGui,
                                              self.calibrateGui,
                                              self.saveGui],
                                     labels=False)
 
         self.vWindow.addParameterGui(self.container, name=self.DEFAULT['nameGUI'])
 
-    def _getSettings(self):
-        ''' read the current values from the settings panel.
+        # live-update: load+show a raw image every time its file picker
+        # changes, and do the same once now for whatever the defaults
+        # point at (harmless no-op print if a default file doesn't exist).
+        # A wavelength change alone can also change which image is
+        # shortest/middle/longest, so it must trigger a color/name refresh
+        # too, even without a new file being picked.
+        fileWidgets = [settingsGui.fileName1, settingsGui.fileName2, settingsGui.fileName3]
+        wavelengthWidgets = [settingsGui.wavelength1, settingsGui.wavelength2, settingsGui.wavelength3]
 
-        fileName1/2/3/whiteFileName are file pickers (full paths) for
-        convenience, but CalibrateFrom3Images.setImageStack() (and the
-        loads in this class) expect bare names without extension, joined
-        with the separate calibration folder - so only the file stem is
-        used here; the picked file's own directory is ignored and it must
-        actually live in the calibration folder for loading to work. '''
-        s = self.settingsGui
-        folder = str(s.folder.value)
-        imageNameStack = [Path(s.fileName1.value).stem, Path(s.fileName2.value).stem, Path(s.fileName3.value).stem]
-        wavelengthStack = [s.wavelength1.value, s.wavelength2.value, s.wavelength3.value]
-        spectralRange = [s.spectralRangeMin.value, s.spectralRangeMax.value]
-        whiteFileName = Path(s.whiteFileName.value).stem if s.whiteFileName.value else ''
-        return folder, imageNameStack, wavelengthStack, spectralRange, whiteFileName
+        for index, fileWidget in enumerate(fileWidgets):
+            fileWidget.changed.connect(lambda path, index=index: self._onRawImageSelected(index, path))
+            self._onRawImageSelected(index, fileWidget.value)
+
+        for wavelengthWidget in wavelengthWidgets:
+            wavelengthWidget.changed.connect(lambda value: self._refreshRawLayerColorsAndNames())
+
+        settingsGui.whiteFileName.changed.connect(self._onWhiteImageSelected)
+        self._onWhiteImageSelected(settingsGui.whiteFileName.value)
 
     def _getViewer(self):
         ''' get or create the napari viewer used to show images/results '''
@@ -113,34 +124,68 @@ class CalibrationGUI(BaseGUI):
             self.viewer = napari.Viewer()
         return self.viewer
 
-    def _showImages(self):
-        ''' show the raw calibration images in napari, each of the three
-        filter images in its own color (R/G/B) with additive blending so
-        they can be visually compared/overlaid, plus the white reference
-        image (if available) in grayscale. '''
-        folder, imageNameStack, wavelengthStack, _, whiteFileName = self._getSettings()
+    def _onRawImageSelected(self, index, path):
+        ''' load and (re)display one of the three filter images as soon as
+        it is picked, and keep the array for Calibrate to use directly. '''
+        try:
+            image = np.load(str(path))
+        except (FileNotFoundError, ValueError):
+            print(f'image not found or not readable: {path} (skipped)')
+            return
+
+        self.rawImages[index] = image
 
         viewer = self._getViewer()
+        if self._rawLayers[index] is not None and self._rawLayers[index] in viewer.layers:
+            self._rawLayers[index].data = image
+        else:
+            self._rawLayers[index] = viewer.add_image(image, blending='additive')
 
-        colormaps = ['red', 'green', 'blue']
-        for name, wavelength, colormap in zip(imageNameStack, wavelengthStack, colormaps):
-            try:
-                image = np.load(folder + '/' + name + '.npy')
-            except FileNotFoundError:
-                print(f'image not found: {folder}/{name}.npy (skipped)')
-                continue
-            viewer.add_image(image, name=f'{name} ({wavelength} nm)',
-                              colormap=colormap, blending='additive')
+        self._refreshRawLayerColorsAndNames()
 
-        if whiteFileName:
-            try:
-                whiteImage = np.load(folder + '/' + whiteFileName + '.npy')
-                viewer.add_image(whiteImage, name=f'{whiteFileName} (white)',
-                                  colormap='gray', blending='additive')
-            except FileNotFoundError:
-                print(f'white image not found: {folder}/{whiteFileName}.npy (skipped)')
+    def _refreshRawLayerColorsAndNames(self):
+        ''' color and name of the three raw-image layers are based on the
+        relative order of their wavelengths, not which file slot they're
+        in - shortest wavelength shown in blue, middle in green, longest
+        in red, each layer named after its own wavelength. Called whenever
+        a wavelength value changes or a new image is picked, since either
+        can change the shortest/middle/longest ordering. '''
+        s = self.settingsGui
+        wavelengths = [s.wavelength1.value, s.wavelength2.value, s.wavelength3.value]
 
-        print(f'showing raw calibration images from folder: {folder}')
+        # rank 0 (shortest wavelength) -> blue, 1 (middle) -> green, 2 (longest) -> red
+        colorByRank = ['blue', 'green', 'red']
+        order = sorted(range(3), key=lambda i: wavelengths[i])
+        colorForIndex = {index: colorByRank[rank] for rank, index in enumerate(order)}
+
+        viewer = self._getViewer()
+        for index, layer in enumerate(self._rawLayers):
+            if layer is not None and layer in viewer.layers:
+                layer.colormap = colorForIndex[index]
+                layer.name = f'{wavelengths[index]} nm'
+
+    def _onWhiteImageSelected(self, path):
+        ''' load and (re)display the white reference image as soon as it
+        is picked, and keep the array for Calibrate to use directly. '''
+        if not path:
+            self.whiteImage = None
+            return
+
+        try:
+            image = np.load(str(path))
+        except (FileNotFoundError, ValueError):
+            print(f'white image not found or not readable: {path} (skipped)')
+            self.whiteImage = None
+            return
+
+        self.whiteImage = image
+
+        viewer = self._getViewer()
+        if self._whiteLayer is not None and self._whiteLayer in viewer.layers:
+            self._whiteLayer.data = image
+        else:
+            self._whiteLayer = viewer.add_image(image, name='white',
+                                                 colormap='gray', blending='additive')
 
     def _calibrate(self):
         ''' start the calibration in a background worker thread, so the
@@ -150,14 +195,25 @@ class CalibrationGUI(BaseGUI):
         which run back on the GUI thread via the worker's Qt signals -
         CalibrationGUI is a QObject (via BaseGUI), so Qt safely queues
         those calls across threads instead of running them on the worker
-        thread, which would not be safe for GUI/napari widgets. '''
-        folder, imageNameStack, wavelengthStack, spectralRange, whiteFileName = self._getSettings()
+        thread, which would not be safe for GUI/napari widgets.
+
+        The three raw images and the white image are transferred as
+        already-loaded arrays (see self.rawImages/self.whiteImage) rather
+        than reloaded by name/folder - they were loaded once already, as
+        soon as each was picked. '''
+        if any(image is None for image in self.rawImages):
+            print('select all three calibration images before calibrating')
+            return
+
+        s = self.settingsGui
+        wavelengthStack = [s.wavelength1.value, s.wavelength2.value, s.wavelength3.value]
+        spectralRange = [s.spectralRangeMin.value, s.spectralRangeMax.value]
 
         self.calibrateGui.status.value = 'calibrating...'
         self.calibrateGui.call_button.enabled = False
 
         worker = create_worker(self._runCalibration,
-                                folder, imageNameStack, wavelengthStack, spectralRange, whiteFileName,
+                                list(self.rawImages), wavelengthStack, spectralRange, self.whiteImage,
                                 _start_thread=True,
                                 _connect={'started': self._onCalibrateStarted,
                                           'returned': self._onCalibrateFinished,
@@ -166,28 +222,15 @@ class CalibrationGUI(BaseGUI):
         # keep a reference so the worker/thread isn't garbage-collected mid-run
         self._calibrateWorker = worker
 
-    def _runCalibration(self, folder, imageNameStack, wavelengthStack, spectralRange, whiteFileName):
+    def _runCalibration(self, imageStack, wavelengthStack, spectralRange, whiteImage):
         ''' pure computation, runs on the worker thread - must not touch
-        any GUI or napari widgets directly. Also loads the white image
-        (if given) here, since that's just file I/O and safe off-thread.
-
-        Passes folder explicitly to setImageStack() rather than mutating
-        the shared spectralCamera.dataFolder global - this runs on a
-        worker thread, and writing a module-level global from there would
-        race against any other code (e.g. another button's callback) that
-        reads/writes it on the GUI thread at the same time. '''
-        myCal = CalibrateFrom3Images(imageNameStack=imageNameStack,
-                                      wavelengthStack=wavelengthStack)
-        myCal.setImageStack(folder=folder)
+        any GUI or napari widgets directly. imageStack/whiteImage are
+        already-loaded arrays transferred straight from the GUI, so no
+        file access happens here at all. '''
+        myCal = CalibrateFrom3Images(wavelengthStack=wavelengthStack)
+        myCal.setImageStack(imageStack=imageStack, wavelengthStack=wavelengthStack)
         myCal.prepareGrid(spectralRange)
         myCal.setWarpMatrix(spectral=True, subpixel=True)
-
-        whiteImage = None
-        if whiteFileName:
-            try:
-                whiteImage = np.load(folder + '/' + whiteFileName + '.npy')
-            except FileNotFoundError:
-                print(f'white image not found: {folder}/{whiteFileName}.npy (skipped)')
 
         return myCal, whiteImage
 
