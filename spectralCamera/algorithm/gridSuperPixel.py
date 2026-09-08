@@ -4,6 +4,7 @@ class to warp the hyperspectral image
 # %% this comment line is code running in Jupiter notebook
 import logging
 import numpy as np
+from scipy.spatial import cKDTree
 #from skimage import data, filters, measure, morphology
 #from skimage.filters import threshold_otsu, rank
 #from skimage.transform import warp
@@ -74,10 +75,18 @@ class GridSuperPixel():
         self.xy00 = self.position[self.idx00,:]
 
     def getPixelIndex(self):
-        ''' 
-        get index of each spectral pixel 
         '''
-      
+        get index of each spectral pixel
+        '''
+
+        # spatial index for fast nearest-neighbor lookup. self.position
+        # does not change during the walk below, so build the tree once
+        # up front instead of scanning every point for every neighbor
+        # lookup - turns an O(N^2) search (N = number of detected spots)
+        # into an O(N log N) one, which is what made this step slow on
+        # full-resolution images with many spots
+        positionTree = cKDTree(self.position)
+
         # define the index matrix
         idxValue = np.zeros_like(self.position).astype('int')
         idxCheck = np.zeros(idxValue.shape[0]).astype('bool')
@@ -90,7 +99,7 @@ class GridSuperPixel():
         while idxToCheck != []:
             if ii%10 == 0:
                 logger.info(f'Pixel indexing step {ii}')
-            
+
             idxToCheckNew = []
 
             # check all position from the list idxToCheck
@@ -99,13 +108,16 @@ class GridSuperPixel():
                 vecuXuY = np.array([[1.0,0.0],[-1.0,0.0],[0.0,1.0],[0.0,-1.0]])
                 for myVec in vecuXuY:
                     vecXY = self.position[mi,:] + myVec[0]*self.xVec + myVec[1]*self.yVec
-                    idxXY = np.argmin(np.linalg.norm(self.position - vecXY,axis=1))
+                    # dist is the distance from vecXY to the nearest
+                    # detected point (position[idxXY]) - algebraically the
+                    # same quantity the old code recomputed by hand as
+                    # norm(position[mi] - position[idxXY] + myVec*vectors)
+                    dist, idxXY = positionTree.query(vecXY)
 
-                    if ((idxCheck[idxXY]==False) and 
-                        (np.linalg.norm(self.position[mi,:] - self.position[idxXY,:]
-                        + myVec[0]*self.xVec + myVec[1]*self.yVec) < 
+                    if ((idxCheck[idxXY]==False) and
+                        (dist <
                         self.devMax*np.linalg.norm( myVec[0]*self.xVec + myVec[1]*self.yVec))):
-                        
+
                         idxValue[idxXY,:] = idxValue[mi] + myVec
                         idxCheck[idxXY] = True
                         idxToCheckNew.append(idxXY)
