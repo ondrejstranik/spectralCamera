@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import napari
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 from viscope.gui.baseGUI import BaseGUI
 from magicgui import magicgui
@@ -15,6 +16,14 @@ from superqt.utils._qthreading import create_worker
 import spectralCamera
 from spectralCamera.algorithm.calibrateFrom3Images import CalibrateFrom3Images
 from spectralCamera.gui.spectralViewer.xywViewer import XYWViewer
+
+
+def _isEmptyPath(path):
+    ''' True for an unset file-picker value. A magicgui FileEdit's empty
+    state is Path(''), but pathlib normalises that to Path('.') - which
+    is truthy and stringifies to '.', not '' - so a plain "not path" or
+    "path == ''" check does not catch it. '''
+    return (not path) or (str(path) in ('', '.'))
 
 
 class CalibrationGUI(BaseGUI):
@@ -73,6 +82,7 @@ class CalibrationGUI(BaseGUI):
         # matplotlib "pixel to wavelength" check figure, reused in place
         self._checkFig = None
         self._checkAx = None
+        self._checkHistAx = None
 
         CalibrationGUI.__setWidget(self)
 
@@ -101,10 +111,12 @@ class CalibrationGUI(BaseGUI):
 
         @magicgui(call_button='Get Blocks',
                   status={"widget_type": "Label"},
-                  bwidth={"widget_type": "Label"},
-                  bheight={"widget_type": "Label"},
-                  wavelengthRange={"widget_type": "Label"})
-        def getBlocksGui(status='', bwidth='', bheight='', wavelengthRange=''):
+                  bwidth={"widget_type": "Label", "label": "box width [px]"},
+                  bheight={"widget_type": "Label", "label": "box height [px]"},
+                  wavelengthRange={"widget_type": "Label"},
+                  dispersion={"widget_type": "Label", "label": "average dispersion"},
+                  blockDistance={"widget_type": "Label", "label": "average block distance [px]"})
+        def getBlocksGui(status='', bwidth='', bheight='', wavelengthRange='', dispersion='', blockDistance=''):
             self._getBlocks()
 
         @magicgui(call_button='Calculate Warp',
@@ -163,7 +175,7 @@ class CalibrationGUI(BaseGUI):
     def _onRawImageSelected(self, index, path):
         ''' load and (re)display one of the three filter images as soon as
         it is picked, and keep the array for Get Blocks to use directly. '''
-        if not path:
+        if _isEmptyPath(path):
             self.rawImages[index] = None
             return
 
@@ -207,7 +219,7 @@ class CalibrationGUI(BaseGUI):
     def _onWhiteImageSelected(self, path):
         ''' load and (re)display the white reference image as soon as it
         is picked, and keep the array for Get Blocks to use directly. '''
-        if not path:
+        if _isEmptyPath(path):
             self.whiteImage = None
             return
 
@@ -258,12 +270,24 @@ class CalibrationGUI(BaseGUI):
         wavelengthStack = [s.wavelength1.value, s.wavelength2.value, s.wavelength3.value]
         spectralRange = [s.spectralRangeMin.value, s.spectralRangeMax.value]
 
+        # CalibrateFrom3Images treats the first image/wavelength as the
+        # center reference (zero pixel shift) that the other two are
+        # measured relative to - so whichever of the three wavelengths is
+        # the middle one has to be moved to slot 0, regardless of which
+        # file picker it was actually entered into
+        order = sorted(range(3), key=lambda i: wavelengthStack[i])
+        centerIndex = order[1]
+        reorderedIndex = [centerIndex] + [i for i in range(3) if i != centerIndex]
+
+        imageStack = [self.rawImages[i] for i in reorderedIndex]
+        wavelengthStack = [wavelengthStack[i] for i in reorderedIndex]
+
         self.getBlocksGui.status.value = 'getting blocks...'
         self.getBlocksGui.call_button.enabled = False
         self.warpGui.call_button.enabled = False
 
         worker = create_worker(self._runGetBlocks,
-                                list(self.rawImages), wavelengthStack, spectralRange,
+                                imageStack, wavelengthStack, spectralRange,
                                 _start_thread=True,
                                 _connect={'started': self._onGetBlocksStarted,
                                           'returned': self._onGetBlocksFinished,
@@ -292,8 +316,17 @@ class CalibrationGUI(BaseGUI):
         # grid [0,0] / zero position of each of the three calibration images
         point00 = np.array([imMo.xy00 for imMo in myCal.imMoStack])
 
-        return {'myCal': myCal, 'blockImage': blockImage,
-                'peakMask': peakMask, 'point00': point00}
+        # per-spot relative x-position (dispersion direction only, in the
+        # block's local pixel coordinates) of every matched grid point in
+        # each of the three images against image 0 - these are exactly
+        # the (un-averaged) values setGridLine's dispersion curve_fit is
+        # built from (it fits against their mean, myCal.pixelPositionWavelength)
+        xInBox = (myCal.positionMatrix[:, 1, myCal.boolMatrix]
+                  - myCal.positionMatrix[0, 1, myCal.boolMatrix])
+        dispersionFitPositions = (xInBox + myCal.bwidth - myCal.xShift).flatten()
+
+        return {'myCal': myCal, 'blockImage': blockImage, 'peakMask': peakMask,
+                'dispersionFitPositions': dispersionFitPositions, 'point00': point00}
 
     def _onGetBlocksStarted(self):
         ''' runs on the GUI thread when the worker actually starts '''
@@ -304,15 +337,26 @@ class CalibrationGUI(BaseGUI):
         myCal = result['myCal']
         self.myCal = myCal
 
-        self.getBlocksGui.bwidth.value = str(myCal.bwidth)
-        self.getBlocksGui.bheight.value = str(myCal.bheight)
+        # average dispersion = mean wavelength step per pixel across the
+        # fitted (generally slightly non-linear) pixel-to-wavelength curve
+        averageDispersion = np.mean(np.abs(np.diff(myCal.wavelength)))
+
+        # average distance between neighboring blocks = length of the
+        # lattice's x basis vector (grid spacing along the row direction)
+        xVec = myCal.imMoStack[0].xVec
+        blockDistance = np.sqrt(xVec[0]**2 + xVec[1]**2)
+
+        self.getBlocksGui.bwidth.value = str(2 * myCal.bwidth + 1)
+        self.getBlocksGui.bheight.value = str(2 * myCal.bheight + 1)
         self.getBlocksGui.wavelengthRange.value = f'{myCal.wavelength.min():.1f} - {myCal.wavelength.max():.1f} nm'
+        self.getBlocksGui.dispersion.value = f'{averageDispersion:.3f} nm/px'
+        self.getBlocksGui.blockDistance.value = f'{blockDistance:.2f} px'
         self.getBlocksGui.status.value = 'finished'
         self.getBlocksGui.call_button.enabled = True
         self.warpGui.call_button.enabled = True
         self.warpGui.status.value = ''
 
-        self._plotWavelengthCheck(myCal)
+        self._plotWavelengthCheck(myCal, result['dispersionFitPositions'])
 
         # visual check: fitted spectral grid over the images, same as the
         # manual visual check in utility/generateCalibrationObject.py
@@ -343,20 +387,39 @@ class CalibrationGUI(BaseGUI):
         self.getBlocksGui.call_button.enabled = True
         print(f'getting blocks failed: {exc}')
 
-    def _plotWavelengthCheck(self, myCal):
+    def _plotWavelengthCheck(self, myCal, dispersionFitPositions):
         ''' visual check that the pixel-to-wavelength fit and the grid are
         on the proper position - same plot as the manual visual check in
-        utility/generateCalibrationObject.py. Reuses the same matplotlib
-        figure on every call instead of piling up a new window each time
-        Get Blocks is pressed. '''
+        utility/generateCalibrationObject.py, plus a gray box marking the
+        spectral block (its pixel width, 0 to 2*bwidth+1, against the
+        wavelengthRange actually achieved by the fit) and, below it - on
+        the same, shared pixel axis - a histogram of every calibration
+        spot's relative x-position (dispersion direction) in the block:
+        the un-averaged values the dispersion curve fit itself is built
+        from, so the three clusters in the histogram should line up with
+        the three vertical marker lines above them. Reuses the same
+        matplotlib figure on every call instead of piling up a new window
+        each time Get Blocks is pressed. '''
         if self._checkFig is None or not plt.fignum_exists(self._checkFig.number):
-            self._checkFig, self._checkAx = plt.subplots()
+            self._checkFig, (self._checkAx, self._checkHistAx) = plt.subplots(
+                2, 1, sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+
+        boxWidth = 2 * myCal.bwidth + 1
+        wavelengthMin = myCal.wavelength.min()
+        wavelengthMax = myCal.wavelength.max()
 
         ax = self._checkAx
         ax.cla()
 
-        ax.plot(myCal.wavelength)
-        ax.set(xlabel='pixels', ylabel='wavelength [nm]', title='fit pixel to wavelength')
+        # gray box: pixel extent of the block (x, index 0 to boxWidth-1 -
+        # same range as myCal.wavelength, which has boxWidth entries)
+        # against the wavelength range actually achieved by the fit (y)
+        ax.add_patch(Rectangle((0, wavelengthMin), boxWidth - 1, wavelengthMax - wavelengthMin,
+                                facecolor='gray', edgecolor='none', alpha=0.3, zorder=0))
+
+        ax.plot(myCal.wavelength, zorder=2)
+        ax.set(ylabel='wavelength [nm]', title='fit pixel to wavelength')
+        ax.set_xlim(0, boxWidth - 1)
         ax.axhline(y=myCal.wavelengthStack[0])
         ax.axhline(y=myCal.wavelengthStack[1])
         ax.axhline(y=myCal.wavelengthStack[2])
@@ -364,6 +427,14 @@ class CalibrationGUI(BaseGUI):
         ax.axvline(x=myCal.pixelPositionWavelength[1] + myCal.bwidth - myCal.xShift)
         ax.axvline(x=myCal.pixelPositionWavelength[2] + myCal.bwidth - myCal.xShift)
 
+        # histogram of the relative peak x-position (dispersion direction
+        # only) in the block, for the points the dispersion fit uses
+        histAx = self._checkHistAx
+        histAx.cla()
+        histAx.hist(dispersionFitPositions, bins=100, color='gray')
+        histAx.set(xlabel='pixels', ylabel='count', title='dispersion fit points')
+
+        self._checkFig.tight_layout()
         self._checkFig.canvas.draw_idle()
         plt.show(block=False)
 

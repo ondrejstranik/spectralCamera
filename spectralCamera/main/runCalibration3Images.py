@@ -59,7 +59,8 @@ def main():
 
     viscope.run()
 
-    camera.disconnect()
+    if cameraOnDevice:
+        camera.disconnect()
 
 if __name__ == "__main__":
     main()
