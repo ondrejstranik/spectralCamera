@@ -7,6 +7,7 @@ from qtpy.QtWidgets import QLabel, QSizePolicy, QWidget, QApplication
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 from qtpy.QtCore import QTimer
+from qtpy.QtCore import QEvent, QPointF
 from viscope.gui.napariViewer.napariViewer import NapariViewer
 from qtpy.QtCore import QObject
 from spectralCamera.algorithm.spotSpectraSimple import SpotSpectraSimple
@@ -71,6 +72,9 @@ class SViewer(QObject):
         self.penList = []
         self.maxNLine = SViewer.DEFAULT['maxNLine']
 
+        # position of mouse on spectraGraph - used for 's'-key line selection
+        self.mousePoint = QPointF()
+
         # per-spot metadata, shape-compatible with plim.algorithm.spotData.
         # SpotData.table. Gets replaced-by-alias (plasmonViewer.table =
         # positionTrack.sD.table) by the owning GUI once a real SpotData
@@ -130,6 +134,11 @@ class SViewer(QObject):
         self.spectraGraph.setLabel('bottom', 'Wavelength ', units= 'nm')
         # speed up drawing
         #self.spectraGraph.disableAutoRange()
+        # track mouse position and accept keyboard focus on click, needed
+        # for the 's'-key nearest-line selection (see eventFilter())
+        self.spectraGraph.setFocusPolicy(Qt.StrongFocus)
+        self.spectraGraph.scene().sigMouseMoved.connect(self.mouse_moved)
+        self.spectraGraph.installEventFilter(self)
         # pre allocate lines and pens for the graph
         for ii in range(self.maxNLine):
             self.linePlotList.append(self.spectraGraph.plot())
@@ -268,6 +277,57 @@ class SViewer(QObject):
             self.table['visible'][ii] = 'False' if self.table['visible'][ii] == 'True' else 'True'
         self.syncPointsFromTable()
         self.sigUpdateData.emit()
+
+    def mouse_moved(self, pos):
+        ''' track mouse position over spectraGraph, in plot (data) coordinates -
+        used by the 's'-key nearest-line selection below '''
+        self.mousePoint = self.spectraGraph.plotItem.vb.mapSceneToView(pos)
+
+    def eventFilter(self, obj, event):
+        ''' 's' pressed while spectraGraph has focus selects (in pointLayer)
+        the spot whose spectra line is closest to the mouse pointer -
+        mirrors SignalWidget's identical shortcut on its own graph '''
+        if obj is self.spectraGraph and event.type() == QEvent.KeyPress and event.text() == 's':
+            self.selectNearestSpot()
+            return True
+        return super().eventFilter(obj, event)
+
+    def selectNearestSpot(self):
+        ''' select the spot whose spectra line in spectraGraph is closest
+        to the current mouse position (self.mousePoint) '''
+        idx = self._findNearestSpot(self.mousePoint.x(), self.mousePoint.y())
+        if idx is not None:
+            self.pointLayer.selected_data = {idx}
+
+    def _findNearestSpot(self, x, y):
+        ''' index of the spot whose spectra line is closest to (x, y).
+        Only the main per-spot data line is considered (spectraRawSpot in
+        raw mode, else getSpectra()'s processed spectra) - not the
+        background/fit/peak overlay lines some subclasses draw alongside
+        it, same simplification SignalWidget makes with its single line
+        per index. '''
+        wavelength = np.asarray(self.spotSpectra.wavelength)
+        if wavelength.size == 0:
+            return None
+        nx = int(np.argmin(np.abs(wavelength - x)))
+
+        rawSpot = getattr(self.spotSpectra, 'spectraRawSpot', None)
+        if getattr(self, 'showRawSpectra', False) and rawSpot:
+            spectra = np.asarray(rawSpot)
+        else:
+            spectra = np.asarray(self.spotSpectra.getSpectra())
+
+        if spectra.size == 0:
+            return None
+
+        value = spectra[:, nx].astype(float)
+
+        # ignore spots marked not-visible, same convention as drawSpectraGraph
+        visible = self.table.get('visible', [])
+        if len(visible) == len(value):
+            value[[v != 'True' for v in visible]] = np.inf
+
+        return int(np.argmin(np.abs(value - y)))
 
     def drawSpectraGraph(self):
         ''' draw all lines in the spectraGraph '''
