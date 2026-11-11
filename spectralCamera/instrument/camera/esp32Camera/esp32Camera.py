@@ -33,8 +33,8 @@ class ESP32Camera(BaseCamera):
                 'streamPort': 81,
                 'nFrame': 1,
                 'filterType': 'RGB', # type of the filter 'RGB', 'RGGB', 'BW'
-                'framesize': 6, # esp32cam framesize_t index (6 = FRAMESIZE_CIF, 400x296)
-                'quality': 15} # jpeg compression quality, 1 (best) - 63 (worst)
+                'framesize': 5, # esp32cam framesize_t index (5 = FRAMESIZE_QVGA, 320x240, firmware maximum)
+                'quality': 20} # jpeg compression quality, 1 (best) - 63 (worst)
 
     def __init__(self, name=None,*args,**kwargs):
         ''' initialisation '''
