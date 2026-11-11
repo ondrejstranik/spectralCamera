@@ -69,7 +69,13 @@ class SCamera(BaseProcessor):
         self.wavelength = self.spectraCalibration.getWavelength()
 
     def getWavelength(self):
-        return self.wavelength        
+        return self.wavelength
+
+    def getBandOffset(self):
+        ''' sub-pixel offset of the band images [dy, dx] (nBand,2),
+        None if the calibration does not provide it '''
+        getOffset = getattr(self.spectraCalibration, 'getBandOffset', None)
+        return getOffset() if getOffset is not None else None
 
     def imageDataToSpectralCube(self,imageData):
         ''' convert image to hyper spectral cube'''
@@ -139,7 +145,8 @@ class SCamera(BaseProcessor):
     def startRecording(self,folder):
         ''' start recording all acquired spectral images'''
         self.fileSIVideo = FileSIVideo(folder=folder)
-        self.fileSIVideo.saveWavelength(self.wavelength) 
+        self.fileSIVideo.saveWavelength(self.wavelength)
+        self.fileSIVideo.saveBandOffset(self.getBandOffset())
         self.flagSaving = True
 
     def stopRecording(self):

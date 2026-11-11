@@ -83,6 +83,20 @@ class CalibratePFImage(BaseCalibrate):
 
         return  WYXImage
 
+    def getBandOffset(self):
+        ''' sub-pixel position of each band image [dy, dx] in pixels of the spectral image
+        raw pixel p = 5*row + col of the 5x5 super-pixel samples the scene at
+        ((row-2)/5, (col-2)/5); band w is the mix sum_p coef[p,w]*raw_p, so its
+        effective position is the coef-weighted mean of the raw pixel positions
+        (used by plim SpotSpectra for band dependent fractional masks) '''
+        coef = self.pf.pixelChar['coef_pixels']
+        bandMask = getattr(self, 'bandMask', None)
+        if bandMask is not None:
+            coef = coef[:, bandMask]
+        p = np.arange(coef.shape[0])
+        d = (np.c_[p // 5, p % 5] - 2) / 5
+        return (coef.T @ d) / coef.sum(axis=0)[:, None]
+
 
 if __name__ == "__main__":
 

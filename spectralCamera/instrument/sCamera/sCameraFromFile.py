@@ -35,6 +35,7 @@ class SCameraFromFile(BaseSequencer):
         # spectralCamera parameters
         self.sImage = None
         self.wavelength = None
+        self.bandOffset = None # sub-pixel offset of the band images (bandOffset.npy in the folder)
         self.t0 = 0 # time of acquisition of the last spectral image
         self.image = np.zeros((2,2)) #  it is defined only for compatibility with SCamera processor
         
@@ -57,7 +58,11 @@ class SCameraFromFile(BaseSequencer):
         self.flipV = False # mirror top-bottom
 
     def getWavelength(self):
-        return self.wavelength        
+        return self.wavelength
+
+    def getBandOffset(self):
+        ''' sub-pixel offset of the band images, None if not recorded '''
+        return self.bandOffset
 
     def getLastSpectralImage(self):
         ''' direct call of the camera image and spectral processing of it '''
@@ -79,6 +84,8 @@ class SCameraFromFile(BaseSequencer):
             self.fileName, self.fileTime = self.fileSIVideo.getImageInfo()
 
         self.wavelength = self.fileSIVideo.loadWavelength()
+        loadBandOffset = getattr(self.fileSIVideo, 'loadBandOffset', None)
+        self.bandOffset = loadBandOffset() if loadBandOffset is not None else None
         self.nFile = len(self.fileName)
         #self.fileTime = self.fileTime/1e9 # convert to seconds
         logger.info(f'fileName {self.fileName}')

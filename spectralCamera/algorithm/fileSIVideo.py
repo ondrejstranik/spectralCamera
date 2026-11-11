@@ -18,6 +18,7 @@ class FileSIVideo:
     
     DEFAULT = {'nameSet'  : {
                             'wavelength': 'wavelength.npy',
+                            'bandOffset': 'bandOffset.npy',
                             'image': 'time_{}'}
     }
 
@@ -44,6 +45,21 @@ class FileSIVideo:
             return
         wavelength = np.load(_file)
         return wavelength
+
+    def saveBandOffset(self,bandOffset):
+        ''' save sub-pixel offset of the band images (mosaic filter cameras)'''
+        if bandOffset is None: return
+        np.save(str(self.folder) +'/' +  self.DEFAULT['nameSet']['bandOffset'],bandOffset)
+
+    def loadBandOffset(self,folder=None):
+        ''' loading sub-pixel offset of the band images, None if not saved'''
+
+        if folder is not None: self.folder = folder
+
+        _file = Path(self.folder + '/' + self.DEFAULT['nameSet']['bandOffset'])
+        if not _file.is_file():
+            return
+        return np.load(_file)
 
     def saveImage(self,sImage,timeTag=None):
         ''' save image in the folder with time tag
